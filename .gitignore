@@ -1,0 +1,21 @@
+node_modules/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+
+.gmp-indikator.txt
+
+.other-indikator.txt
+
+# --- RAHASIA — JANGAN PERNAH COMMIT ---
+DEPLOY-SECURITY.md
+supabase-setup.txt
+supabase-setup.sql
+sql/pkg_activation.sql
+
+.cf-secret.env
+cf-secret*.env
+.env
+*.env

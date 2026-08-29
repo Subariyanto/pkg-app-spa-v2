@@ -1,0 +1,100 @@
+// sw.js - Service worker for PKG app
+// V7 SECURED (2026-08-26): Session token admin, rate-limit, CORS ketat, format kode PKG-XXXX-XXXX, password admin tak bocor.
+const CACHE_VERSION = 'pkg-v29-2026-08-27-copy-http-fix';
+
+const NETWORK_FIRST = [
+  'index.html',
+  'app.js',
+  'db.js',
+  'importer.js',
+  'instrumen.js',
+  'saran-dokumen.js',
+  'saran-indikator.js',
+  'laporan.js',
+  'auth.js',
+  'cloudflare_sync.js',
+  'style.css',
+  'manifest.json',
+];
+
+const PRECACHE = [
+  './',
+  './index.html',
+  './style.css',
+  './instrumen.js',
+  './saran-dokumen.js',
+  './saran-indikator.js',
+  './db.js',
+  './importer.js',
+  './laporan.js',
+  './auth.js',
+  './cloudflare_sync.js',
+  './app.js',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
+];
+
+self.addEventListener('install', (ev) => {
+  ev.waitUntil(
+    caches.open(CACHE_VERSION).then(cache =>
+      Promise.all(PRECACHE.map(url =>
+        cache.add(url).catch(err => console.warn('Cache skip:', url, err.message))
+      ))
+    ).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (ev) => {
+  ev.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then(clients => clients.forEach(c => c.postMessage({ type: 'SW_UPDATED' })))
+  );
+});
+
+function isAppCode(url) {
+  const u = new URL(url);
+  if (u.origin !== self.location.origin) return false;
+  return NETWORK_FIRST.some(name => u.pathname.endsWith('/' + name) || u.pathname === '/' || u.pathname.endsWith('pkg-app-spa/'));
+}
+
+self.addEventListener('fetch', (ev) => {
+  const req = ev.request;
+  if (req.method !== 'GET') return;
+
+  // Supabase API requests: always network-first, don't cache
+  const supabasePattern = /supabase\.co\/rest\/v1\/rpc\//;
+  if (supabasePattern.test(req.url)) {
+    ev.respondWith(fetch(req));
+    return;
+  }
+
+  if (isAppCode(req.url)) {
+    ev.respondWith(
+      fetch(req).then(res => {
+        if (res && res.status === 200) {
+          const clone = res.clone();
+          caches.open(CACHE_VERSION).then(cache => cache.put(req, clone)).catch(() => {});
+        }
+        return res;
+      }).catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  ev.respondWith(
+    caches.match(req).then(cached => {
+      if (cached) return cached;
+      return fetch(req).then(res => {
+        if (res && res.status === 200 && (res.type === 'basic' || res.type === 'cors')) {
+          const clone = res.clone();
+          caches.open(CACHE_VERSION).then(cache => cache.put(req, clone)).catch(() => {});
+        }
+        return res;
+      }).catch(() => cached);
+    })
+  );
+});
