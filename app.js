@@ -1491,13 +1491,6 @@ function viewNilai(view, guruId, role, jenis) {
             <span><span class="badge bg-primary me-1">K${k.no}</span> ${e(k.nama)}</span>
             <span class="text-muted small">${k.items.length} indikator</span>
           </div>
-          ${isRA && k.buktiUmum ? `
-          <div class="card-body border-bottom py-2 bg-light">
-            <div class="small text-muted fw-semibold mb-1"><i class="bi bi-eye"></i> Bukti yang dapat diamati:</div>
-            <ul class="small text-muted mb-0 ps-3">
-              ${k.buktiUmum.map(b => `<li>${e(b)}</li>`).join('')}
-            </ul>
-          </div>` : ''}
           <div class="card-body p-0">
             ${k.items.map(it => {
               const pg = PKGDB.getPenggalian(it.id);
@@ -1506,7 +1499,7 @@ function viewNilai(view, guruId, role, jenis) {
               <div class="indikator-row">
                 <div class="text-muted small" style="min-width: 1.8rem;">${it.indikator_no}.</div>
                 <div class="flex-grow-1">
-                  <a href="#" class="text-decoration-none text-body" data-pg-ind="${e(it.id)}" data-pg-text="${e(it.indikator)}" data-pg-role="${e(meta.role_label)}" data-pg-komp="${e(k.nama)}" title="Klik untuk lihat catatan penggalian data">${e(it.indikator)}</a>
+                  <a href="#" class="text-decoration-none text-body" data-pg-ind="${e(it.id)}" data-pg-text="${e(it.indikator)}" data-pg-role="${e(meta.role_label)}" data-pg-komp="${e(k.nama)}" data-pg-bukti="${isRA && k.buktiUmum ? e(JSON.stringify(k.buktiUmum)) : ''}" title="Klik untuk lihat catatan penggalian data">${e(it.indikator)}</a>
                   ${hasPg ? ' <span class="badge bg-info text-dark" style="font-size:.65rem" title="Ada catatan penggalian data">📋 catatan</span>' : ''}
                 </div>
                 <div class="skor-pill" data-iid="${e(it.id)}">
@@ -1630,6 +1623,7 @@ function viewNilai(view, guruId, role, jenis) {
       indikator: pgBtn.dataset.pgText,
       roleLabel: pgBtn.dataset.pgRole,
       kompNama: pgBtn.dataset.pgKomp,
+      buktiUmum: pgBtn.dataset.pgBukti ? JSON.parse(pgBtn.dataset.pgBukti) : null,
       onSaved: () => {
         // Update badge inline (re-render whole view supaya state radio juga ngga reset)
         const newPg = PKGDB.getPenggalian(pgBtn.dataset.pgInd);
@@ -3913,6 +3907,13 @@ function openPenggalianDialog(opts) {
             <div class="small text-muted mb-1">Indikator</div>
             <div class="fw-semibold">${e(opts.indikator)}</div>
           </div>
+          ${opts.buktiUmum && opts.buktiUmum.length ? `
+          <div class="mb-3">
+            <div class="small text-muted fw-semibold mb-1"><i class="bi bi-eye"></i> Bukti yang dapat diamati:</div>
+            <ul class="small text-muted mb-0 ps-3">
+              ${opts.buktiUmum.map(b => `<li>${e(b)}</li>`).join('')}
+            </ul>
+          </div>` : ''}
           <div class="mb-3">
             <label class="form-label">Metode Penggalian Data</label>
             <div class="d-flex flex-wrap gap-3">
