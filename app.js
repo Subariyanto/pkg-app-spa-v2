@@ -815,7 +815,14 @@ function openImportDialog(title, columns, bulkFn, onDone) {
   const modalEl = document.getElementById('import-modal');
   const modal = new bootstrap.Modal(modalEl);
   modal.show();
-  modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove(), { once: true });
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    modal.dispose();
+    modalEl.remove();
+    document.querySelectorAll('.modal-backdrop').forEach(function(el){ el.remove(); });
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('overflow');
+    document.body.style.removeProperty('padding-right');
+  }, { once: true });
 
   document.getElementById('btn-imp-go').addEventListener('click', async () => {
     const f = document.getElementById('imp-file').files[0];
@@ -1895,7 +1902,14 @@ function openPenilaianBaruDialog() {
   const modalEl = document.getElementById('pn-modal');
   const modal = new bootstrap.Modal(modalEl);
   modal.show();
-  modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove(), { once: true });
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    modal.dispose();
+    modalEl.remove();
+    document.querySelectorAll('.modal-backdrop').forEach(function(el){ el.remove(); });
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('overflow');
+    document.body.style.removeProperty('padding-right');
+  }, { once: true });
   document.getElementById('pn-go').addEventListener('click', () => {
     const gid = document.getElementById('pn-guru').value;
     const role = document.getElementById('pn-role').value;
@@ -2267,7 +2281,14 @@ function showGuruListDialog(title, names) {
   const modalEl = document.getElementById('gl-modal');
   const modal = new bootstrap.Modal(modalEl);
   modal.show();
-  modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove(), { once: true });
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    modal.dispose();
+    modalEl.remove();
+    document.querySelectorAll('.modal-backdrop').forEach(function(el){ el.remove(); });
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('overflow');
+    document.body.style.removeProperty('padding-right');
+  }, { once: true });
 }
 
 function exportRekapPKBMadrasahCSV(data) {
@@ -3744,7 +3765,14 @@ function openEditIndikatorDialog(opts) {
   const modalEl = document.getElementById('ind-modal');
   const modal = new bootstrap.Modal(modalEl);
   modal.show();
-  modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove(), { once: true });
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    modal.dispose();
+    modalEl.remove();
+    document.querySelectorAll('.modal-backdrop').forEach(function(el){ el.remove(); });
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('overflow');
+    document.body.style.removeProperty('padding-right');
+  }, { once: true });
   document.getElementById('ind-save').addEventListener('click', () => {
     const v = document.getElementById('ind-text').value.trim();
     if (!v) { toast('Teks tidak boleh kosong', 'danger'); return; }
@@ -3795,7 +3823,14 @@ function openEditKompetensiDialog(opts) {
   const modalEl = document.getElementById('kom-modal');
   const modal = new bootstrap.Modal(modalEl);
   modal.show();
-  modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove(), { once: true });
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    modal.dispose();
+    modalEl.remove();
+    document.querySelectorAll('.modal-backdrop').forEach(function(el){ el.remove(); });
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('overflow');
+    document.body.style.removeProperty('padding-right');
+  }, { once: true });
   document.getElementById('kom-save').addEventListener('click', () => {
     const v = document.getElementById('kom-text').value.trim();
     if (!v) { toast('Nama tidak boleh kosong', 'danger'); return; }
@@ -3815,7 +3850,18 @@ function openEditKompetensiDialog(opts) {
 }
 
 function openPenggalianDialog(opts) {
-  document.getElementById('pg-modal')?.remove();
+  // Dispose & remove existing modal instance (fix: backdrop stacking, 3x click to close)
+  const oldEl = document.getElementById('pg-modal');
+  if (oldEl) {
+    const oldModal = bootstrap.Modal.getInstance(oldEl);
+    if (oldModal) { try { oldModal.dispose(); } catch(e){} }
+    oldEl.remove();
+  }
+  // Cleanup orphaned backdrops
+  document.querySelectorAll('.modal-backdrop').forEach(function(el){ el.remove(); });
+  document.body.classList.remove('modal-open');
+  document.body.style.removeProperty('overflow');
+  document.body.style.removeProperty('padding-right');
   const existing = PKGDB.getPenggalian(opts.id) || null;
   // Find role_code & komp_no & ind_no dari id (format: ROLE_komp_indikator)
   const parts = String(opts.id).split('_');
@@ -3878,7 +3924,15 @@ function openPenggalianDialog(opts) {
   const modalEl = document.getElementById('pg-modal');
   const modal = new bootstrap.Modal(modalEl);
   modal.show();
-  modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove(), { once: true });
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    modal.dispose();
+    modalEl.remove();
+    // Cleanup orphaned backdrops (safety net)
+    document.querySelectorAll('.modal-backdrop').forEach(function(el){ el.remove(); });
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('overflow');
+    document.body.style.removeProperty('padding-right');
+  }, { once: true });
   document.getElementById('pg-save').addEventListener('click', () => {
     const m = [];
     if (document.getElementById('pg-m-obs').checked) m.push('observasi');
