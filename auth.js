@@ -145,7 +145,7 @@
   }
 
   function isLoggedIn() {
-    return sessionStorage.getItem(KEY_LOGGED_IN) === 'true';
+    return localStorage.getItem(KEY_LOGGED_IN) === 'true';
   }
 
   function isAdminLoggedIn() {
@@ -514,7 +514,7 @@
     }
 
     // Clear session supaya back button tidak auto-login
-    sessionStorage.removeItem(KEY_LOGGED_IN);
+    localStorage.removeItem(KEY_LOGGED_IN);
 
     var regName = localStorage.getItem(KEY_USER_FULLNAME) || '';
 
@@ -611,7 +611,7 @@
         localStorage.setItem(KEY_USER_ROLE, 'admin');
         localStorage.setItem(KEY_USER_USERNAME, res.username || username);
         localStorage.setItem(KEY_USER_FULLNAME, res.nama || username);
-        sessionStorage.setItem(KEY_LOGGED_IN, 'true');
+        localStorage.setItem(KEY_LOGGED_IN, 'true');
         var ov = document.getElementById('pkg-auth-overlay');
         if (ov) ov.remove();
         window.location.hash = '#/kelola-aktivasi';
@@ -655,7 +655,7 @@
         return;
       }
 
-      sessionStorage.setItem(KEY_LOGGED_IN, 'true');
+      localStorage.setItem(KEY_LOGGED_IN, 'true');
       var overlay2 = document.getElementById('pkg-auth-overlay');
       if (overlay2) overlay2.remove();
       if (typeof window.render === 'function') window.render();
@@ -973,7 +973,7 @@
     localStorage.removeItem(KEY_USER_ROLE);
     localStorage.removeItem(KEY_USER_USERNAME);
     localStorage.removeItem(KEY_USER_FULLNAME);
-    sessionStorage.removeItem(KEY_LOGGED_IN);
+    localStorage.removeItem(KEY_LOGGED_IN);
     if (window.SupabaseSync && window.SupabaseSync.adminLogout) {
       window.SupabaseSync.adminLogout(); // hapus session token juga
     }
@@ -987,7 +987,7 @@
     localStorage.removeItem(KEY_USER_PASSWORD_HASH);
     localStorage.removeItem(KEY_USER_FULLNAME);
     localStorage.removeItem(KEY_ACTIVATED);
-    sessionStorage.removeItem(KEY_LOGGED_IN);
+    localStorage.removeItem(KEY_LOGGED_IN);
   }
 
   // --- INITIALIZATION ---
@@ -1020,7 +1020,7 @@
       localStorage.removeItem(KEY_USER_FULLNAME);
       localStorage.removeItem(KEY_USER_MADRASAH);
       localStorage.removeItem(KEY_USER_KABUPATEN);
-      sessionStorage.removeItem(KEY_LOGGED_IN);
+      localStorage.removeItem(KEY_LOGGED_IN);
       sessionStorage.setItem('pkg_trial_just_expired', '1');
       renderActivationScreen();
       return new Promise(function () {});
@@ -1034,7 +1034,7 @@
       if (!isLoggedIn()) {
         // Trial user masih aktif → auto-login (tanpa input username/password)
         if (_isTrialUser && !isTrialExpired()) {
-          sessionStorage.setItem(KEY_LOGGED_IN, 'true');
+          localStorage.setItem(KEY_LOGGED_IN, 'true');
         } else {
           renderLoginScreen();
           return new Promise(function () {});
@@ -1081,7 +1081,7 @@
       location.reload();
       return;
     }
-    sessionStorage.removeItem(KEY_LOGGED_IN);
+    localStorage.removeItem(KEY_LOGGED_IN);
     lock();
     location.reload();
   }

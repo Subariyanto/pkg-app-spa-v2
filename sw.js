@@ -1,6 +1,6 @@
 // sw.js - Service worker for PKG app
 // V7 SECURED (2026-08-26): Session token admin, rate-limit, CORS ketat, format kode PKG-XXXX-XXXX, password admin tak bocor.
-const CACHE_VERSION = 'pkg-v29-2026-08-27-copy-http-fix';
+const CACHE_VERSION = 'pkg-v30-2026-08-30-ra-revisi';
 
 const NETWORK_FIRST = [
   'index.html',
@@ -13,6 +13,7 @@ const NETWORK_FIRST = [
   'laporan.js',
   'auth.js',
   'cloudflare_sync.js',
+  'pkg-ra.js',
   'style.css',
   'manifest.json',
 ];
@@ -29,6 +30,7 @@ const PRECACHE = [
   './laporan.js',
   './auth.js',
   './cloudflare_sync.js',
+  './pkg-ra.js',
   './app.js',
   './manifest.json',
   './icon-192.png',
