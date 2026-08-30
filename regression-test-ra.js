@@ -83,8 +83,8 @@ test('2. RA guru → instrumen RA (79 items)', function() {
   var ins = PKGDB.getInstrumen('GMP', guruRA);
   eq(ins.length, 79, 'RA instrumen count');
   // Verify IDs use RA namespace
-  assert(/^RA-PED-01-I01$/.test(ins[0].id), 'First RA ID should be RA-PED-01-I01, got ' + ins[0].id);
-  assert(/^RA-SOS-15-I03$/.test(ins[78].id), 'Last RA ID should be RA-SOS-15-I03, got ' + ins[78].id);
+  assert(/^RA-01-01$/.test(ins[0].id), 'First RA ID should be RA-01-01, got ' + ins[0].id);
+  assert(/^RA-15-03$/.test(ins[78].id), 'Last RA ID should be RA-15-03, got ' + ins[78].id);
 });
 
 // Test 3: hitungNilai for RA guru uses RA instrument

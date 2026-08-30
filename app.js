@@ -1499,7 +1499,7 @@ function viewNilai(view, guruId, role, jenis) {
               <div class="indikator-row">
                 <div class="text-muted small" style="min-width: 1.8rem;">${it.indikator_no}.</div>
                 <div class="flex-grow-1">
-                  <a href="#" class="text-decoration-none text-body" data-pg-ind="${e(it.id)}" data-pg-text="${e(it.indikator)}" data-pg-role="${e(meta.role_label)}" data-pg-komp="${e(k.nama)}" data-pg-bukti="${isRA && k.buktiUmum ? e(JSON.stringify(k.buktiUmum)) : ''}" title="Klik untuk lihat catatan penggalian data">${e(it.indikator)}</a>
+                  <a href="#" class="text-decoration-none text-body" data-pg-ind="${e(it.id)}" data-pg-text="${e(it.indikator)}" data-pg-role="${e(meta.role_label)}" data-pg-komp="${e(k.nama)}" data-pg-catatan="${isRA && it.catatanPenggalianData ? e(it.catatanPenggalianData) : ''}" title="Klik untuk lihat catatan penggalian data">${e(it.indikator)}</a>${isRA && it.catatanPenggalianData ? ' <span class="text-primary" style="cursor:pointer;font-size:.85rem" data-pg-ind="${e(it.id)}" data-pg-text="${e(it.indikator)}" data-pg-role="${e(meta.role_label)}" data-pg-komp="${e(k.nama)}" data-pg-catatan="${e(it.catatanPenggalianData)}" title="Catatan Penggalian Data">ⓘ</span>' : ''}
                   ${hasPg ? ' <span class="badge bg-info text-dark" style="font-size:.65rem" title="Ada catatan penggalian data">📋 catatan</span>' : ''}
                 </div>
                 <div class="skor-pill" data-iid="${e(it.id)}">
@@ -1623,7 +1623,7 @@ function viewNilai(view, guruId, role, jenis) {
       indikator: pgBtn.dataset.pgText,
       roleLabel: pgBtn.dataset.pgRole,
       kompNama: pgBtn.dataset.pgKomp,
-      buktiUmum: pgBtn.dataset.pgBukti ? JSON.parse(pgBtn.dataset.pgBukti) : null,
+      catatanPenggalianData: pgBtn.dataset.pgCatatan || null,
       onSaved: () => {
         // Update badge inline (re-render whole view supaya state radio juga ngga reset)
         const newPg = PKGDB.getPenggalian(pgBtn.dataset.pgInd);
@@ -3893,6 +3893,7 @@ function openPenggalianDialog(opts) {
   const data = existing || (saran ? { metode: saran.metode || [], sumber: saran.sumber || '', catatan: saran.catatan || '' } : { metode: [], sumber: '', catatan: '' });
   const metode = Array.isArray(data.metode) ? data.metode : [];
   const has = (k) => metode.includes(k);
+  const isRAReadonly = !!(opts.catatanPenggalianData);
   const modalHtml = `
   <div class="modal fade" id="pg-modal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -3907,13 +3908,13 @@ function openPenggalianDialog(opts) {
             <div class="small text-muted mb-1">Indikator</div>
             <div class="fw-semibold">${e(opts.indikator)}</div>
           </div>
-          ${opts.buktiUmum && opts.buktiUmum.length ? `
+          ${isRAReadonly ? `
           <div class="mb-3">
-            <div class="small text-muted fw-semibold mb-1"><i class="bi bi-eye"></i> Bukti yang dapat diamati:</div>
-            <ul class="small text-muted mb-0 ps-3">
-              ${opts.buktiUmum.map(b => `<li>${e(b)}</li>`).join('')}
-            </ul>
-          </div>` : ''}
+            <div class="small text-muted fw-semibold mb-1"><i class="bi bi-info-circle"></i> Catatan Penggalian Data:</div>
+            <div class="border rounded p-3 bg-light small">${e(opts.catatanPenggalianData)}</div>
+          </div>
+          <div class="small text-muted mt-2"><i class="bi bi-shield-check"></i> Panduan bagi penilai. Tidak mengubah nilai skor.</div>
+          ` : `
           <div class="mb-3">
             <label class="form-label">Metode Penggalian Data</label>
             <div class="d-flex flex-wrap gap-3">
@@ -3932,12 +3933,13 @@ function openPenggalianDialog(opts) {
             <textarea id="pg-catatan" class="form-control" rows="6" placeholder="Tulis tips/petunjuk teknis: apa yang dicari, bukti yang diperlukan, pertanyaan kunci wawancara, dst.">${e(data.catatan || '')}</textarea>
           </div>
           ${existing && existing.updated_at ? `<div class="small text-muted mt-2"><i class="bi bi-clock-history"></i> Terakhir diubah: ${fmtDate(existing.updated_at)}</div>` : (saran ? `<div class="small text-success mt-2"><i class="bi bi-info-circle"></i> Pre-isi dari saran dokumen ${saranScope === 'indikator' ? 'spesifik <strong>per-indikator</strong>' : '<strong>per-kompetensi</strong>'}. Ubah/tambahkan sesuai kebutuhan, lalu Simpan.</div>` : '')}
+          `}
         </div>
         <div class="modal-footer d-flex justify-content-between">
-          ${existing && existing.updated_at ? '<button class="btn btn-outline-danger btn-sm" id="pg-clear"><i class="bi bi-trash"></i> Hapus Catatan</button>' : '<span></span>'}
+          ${isRAReadonly ? '<span></span>' : (existing && existing.updated_at ? '<button class="btn btn-outline-danger btn-sm" id="pg-clear"><i class="bi bi-trash"></i> Hapus Catatan</button>' : '<span></span>')}
           <div>
             <button class="btn btn-light" data-bs-dismiss="modal">Tutup</button>
-            <button class="btn btn-primary" id="pg-save"><i class="bi bi-check-lg"></i> Simpan</button>
+            ${isRAReadonly ? '' : '<button class="btn btn-primary" id="pg-save"><i class="bi bi-check-lg"></i> Simpan</button>'}
           </div>
         </div>
       </div>
@@ -3956,7 +3958,7 @@ function openPenggalianDialog(opts) {
     document.body.style.removeProperty('overflow');
     document.body.style.removeProperty('padding-right');
   }, { once: true });
-  document.getElementById('pg-save').addEventListener('click', () => {
+  document.getElementById('pg-save')?.addEventListener('click', () => {
     const m = [];
     if (document.getElementById('pg-m-obs').checked) m.push('observasi');
     if (document.getElementById('pg-m-doc').checked) m.push('dokumen');
