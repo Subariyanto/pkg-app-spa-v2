@@ -224,13 +224,26 @@ function getRoleMeta(code) {
   return ROLES.find(r => r.role_code === code);
 }
 
-function getInstrumen(role) {
+// Deteksi jenjang RA. Jika guru (atau kamad) berjenjang RA dan role = GMP,
+// maka pakai instrumen khusus RA supaya hasil RA tidak tertukar dgn jenjang lain.
+function isRAJenjang(guru) {
+  return !!(guru && String(guru.jenjang || '').trim().toUpperCase() === 'RA');
+}
+
+// Dapatkan instrumen untuk role+guru. Fungsi lama getInstrumen(role) tetap bekerja
+// (guru undefined → bukan RA → instrumen lama). Untuk penilaian RA (role GMP +
+// jenjang guru RA) otomatis memakai window.INSTRUMEN_RA.
+function getInstrumen(role, guru) {
   const overInd = load(KEYS.instrumen_overrides, {});
   const overKomp = load(KEYS.kompetensi_overrides, {});
-  return window.INSTRUMEN
+  const isRA = isRAJenjang(guru) && role === 'GMP';
+  const src = isRA ? window.INSTRUMEN_RA : window.INSTRUMEN;
+  return src
     .filter(i => i.role_code === role)
     .map((it) => {
-      const id = `${it.role_code}_${it.kompetensi_no}_${it.indikator_no}`;
+      // RA sudah punya id namespace RA-xxx (tidak mungkin bentrok dgn GMP lama).
+      // Non-RA tetap pakai id lama untuk backward-compat.
+      const id = isRA ? (it.id || `${it.role_code}_${it.kompetensi_no}_${it.indikator_no}`) : `${it.role_code}_${it.kompetensi_no}_${it.indikator_no}`;
       const kompKey = `${it.role_code}_${it.kompetensi_no}`;
       return {
         ...it,
@@ -468,6 +481,9 @@ function getOrCreatePenilaian(guruId, role, jenis, periode) {
     Number(x.periode) === periode
   );
   if (p) return p;
+  // Metadata RA supaya hasil PKG RA tidak tertukar dgn jenjang lain.
+  const _guru = getGuru(guruId);
+  const _isRA = isRAJenjang(_guru) && role === 'GMP';
   p = {
     id: nextId('penilaian'),
     guru_id: guruId,
@@ -476,6 +492,7 @@ function getOrCreatePenilaian(guruId, role, jenis, periode) {
     periode,
     tanggal: null,
     catatan: null,
+    ...(_isRA ? { jenjang: 'RA', instrumentType: 'PKG_RA', instrumentVersion: '2026.1' } : {}),
     created_at: nowLocal(),
     updated_at: nowLocal(),
   };
@@ -525,7 +542,10 @@ function hitungNilai(penId, role) {
   const meta = getRoleMeta(role);
   if (!meta) return { nilaiAkhir: 0, sebutan: '-', kompPct: [] };
   const max = meta.max_score;
-  const instrumen = getInstrumen(role);
+  // Resolusi otomatis jenjang dari record penilaian (guru RA → instrumen RA).
+  const penRow = load(KEYS.penilaian, []).find(p => p.id === penId);
+  const guru = penRow ? getGuru(penRow.guru_id) : null;
+  const instrumen = getInstrumen(role, guru);
   const skorMap = getSkorMap(penId);
   const byKomp = new Map();
   for (const it of instrumen) {

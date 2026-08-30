@@ -170,7 +170,7 @@ async function importOne(arrayBuffer) {
     if (p.tanggal && /\d{4}-\d{2}-\d{2}/.test(p.tanggal)) {
       PKGDB.updatePenilaianMeta(pen.id, { tanggal: p.tanggal });
     }
-    const inst = PKGDB.getInstrumen(p.role_code);
+    const inst = PKGDB.getInstrumen(p.role_code, row);
     const idMap = new Map();
     for (const ir of inst) idMap.set(`${ir.kompetensi_no}-${ir.indikator_no}`, ir.id);
 

@@ -985,6 +985,7 @@ function viewGuruForm(view, editId) {
       <h6 class="text-muted text-uppercase small mb-3">Madrasah & Penilai</h6>
       <div class="row g-3">
         <div class="col-md-8">${field('nama_madrasah', 'Nama Madrasah', 'text')}</div>
+        <div class="col-md-4">${field('jenjang', 'Jenjang', 'select', { options: ['RA', 'MI', 'MTs', 'MA', 'MAK'] })}</div>
         <div class="col-md-4">${field('tahun_pelajaran', 'Tahun Pelajaran', 'text', { default: '2025/2026' })}</div>
         <div class="col-md-9">${field('alamat_madrasah', 'Alamat Madrasah', 'text')}</div>
         <div class="col-md-3">${field('semester', 'Semester', 'select', { options: ['Ganjil', 'Genap'] })}</div>
@@ -1024,7 +1025,7 @@ function viewGuruDetail(view, id) {
   const allPen = PKGDB.listPenilaianByGuru(id);
   const penilaian = allPen.map(p => {
     const n = PKGDB.hitungNilai(p.id, p.role_code);
-    const total = PKGDB.getInstrumen(p.role_code).length;
+    const total = PKGDB.getInstrumen(p.role_code, g).length;
     const terisi = PKGDB.countSkor(p.id);
     const meta = PKGDB.getRoleMeta(p.role_code) || {};
     return { ...p, terisi, total, role_label: meta.role_label || p.role_code, nilai: n.nilaiAkhir, sebutan: n.sebutan };
@@ -1300,7 +1301,7 @@ function computePKBSuggestions(guruId) {
   for (const pen of pens) {
     const meta = PKGDB.getRoleMeta(pen.role_code);
     if (!meta) continue;
-    const instrumen = PKGDB.getInstrumen(pen.role_code);
+    const instrumen = PKGDB.getInstrumen(pen.role_code, PKGDB.getGuru(guruId));
     const skorMap = PKGDB.getSkorMap(pen.id);
     // Group instrumen per kompetensi
     const grouped = {};
@@ -1426,7 +1427,7 @@ function viewNilai(view, guruId, role, jenis) {
   if (!meta) { view.innerHTML = '<div class="alert alert-warning">Peran tidak ditemukan</div>'; return; }
   jenis = jenis === 'formatif' ? 'formatif' : 'sumatif';
   const pen = PKGDB.getOrCreatePenilaian(guruId, role, jenis);
-  const instrumen = PKGDB.getInstrumen(role);
+  const instrumen = PKGDB.getInstrumen(role, g);
 
   const grouped = [];
   for (const it of instrumen) {
@@ -1655,7 +1656,7 @@ function viewPenilaianHub(view) {
   for (const g of allGuru) {
     const pens = PKGDB.listPenilaianByGuru(g.id);
     for (const p of pens) {
-      const total = PKGDB.getInstrumen(p.role_code).length;
+      const total = PKGDB.getInstrumen(p.role_code, g).length;
       const terisi = PKGDB.countSkor(p.id);
       const n = PKGDB.hitungNilai(p.id, p.role_code);
       const meta = PKGDB.getRoleMeta(p.role_code) || {};
@@ -2113,7 +2114,7 @@ function computePKBMadrasah(data, scope) {
       for (const pen of pens) {
         const meta = PKGDB.getRoleMeta(pen.role_code);
         if (!meta) continue;
-        const instrumen = PKGDB.getInstrumen(pen.role_code);
+        const instrumen = PKGDB.getInstrumen(pen.role_code, g);
         const skorMap = PKGDB.getSkorMap(pen.id);
         const groupedKomp = {};
         for (const it of instrumen) {
@@ -2957,7 +2958,7 @@ function viewMonitoringKBC(view) {
       const skorMap = PKGDB.getSkorMap(p.id);
       const meta = PKGDB.getRoleMeta(p.role_code) || { max_score: 2 };
       const max = meta.max_score;
-      const instrumen = PKGDB.getInstrumen(p.role_code);
+      const instrumen = PKGDB.getInstrumen(p.role_code, g);
       const kbcInstr = instrumen.filter(i => kbcIds.has(i.id));
       if (kbcInstr.length === 0) continue;
       let sum = 0, count = 0, filled = 0;
@@ -4280,7 +4281,7 @@ function viewCetak(view, guruId, role, jenis) {
   jenis = jenis === 'formatif' ? 'formatif' : 'sumatif';
   const pen = PKGDB.getOrCreatePenilaian(guruId, role, jenis);
   const skorMap = PKGDB.getSkorMap(pen.id);
-  const instrumen = PKGDB.getInstrumen(role);
+  const instrumen = PKGDB.getInstrumen(role, g);
 
   const grouped = [];
   for (const it of instrumen) {
@@ -4312,7 +4313,7 @@ function viewCetak(view, guruId, role, jenis) {
   <div id="cetak-area" style="position:relative;z-index:2;font-family: 'Times New Roman', serif; font-size: 11pt; color:#000; background:white; padding: 1cm; max-width: 21cm; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,.1);">
     <div style="text-align:center; margin-bottom: 12px;">
       <div><b>KEMENTERIAN AGAMA KABUPATEN JEMBER</b></div>
-      <h3 style="margin:.4em 0;">INSTRUMEN PENILAIAN KINERJA ${e(meta.role_label.toUpperCase())}</h3>
+      <h3 style="margin:.4em 0;">${e((PKGDB.getGuru(g.id) && String(PKGDB.getGuru(g.id).jenjang||'').toUpperCase()==='RA' && role==='GMP') ? 'HASIL PENILAIAN KINERJA GURU RAUDHATUL ATHFAL' : ('INSTRUMEN PENILAIAN KINERJA ' + meta.role_label.toUpperCase()))}</h3>
       <div>Tahun Pelajaran ${e(g.tahun_pelajaran || '-')} &middot; Semester ${e(g.semester || '-')}</div>
       <div>Jenis: <b>${jenis.toUpperCase()}</b></div>
     </div>

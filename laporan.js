@@ -152,7 +152,7 @@
       if (r.penilaian_id == null) continue;
       const meta = window.PKGDB.getRoleMeta(r.role_code);
       if (!meta) continue;
-      const instrumen = window.PKGDB.getInstrumen(r.role_code);
+      const instrumen = window.PKGDB.getInstrumen(r.role_code, r.guru);
       const skorMap = window.PKGDB.getSkorMap ? window.PKGDB.getSkorMap(r.penilaian_id) : null;
       if (!skorMap) continue;
       const max = meta.max_score;
