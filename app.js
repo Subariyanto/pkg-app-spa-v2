@@ -1435,12 +1435,13 @@ function viewNilai(view, guruId, role, jenis) {
   jenis = jenis === 'formatif' ? 'formatif' : 'sumatif';
   const pen = PKGDB.getOrCreatePenilaian(guruId, role, jenis);
   const instrumen = PKGDB.getInstrumen(role, g);
+  const isRA = PKGDB.isRAJenjang(g) && role === 'GMP';
 
   const grouped = [];
   for (const it of instrumen) {
     let cur = grouped[grouped.length - 1];
     if (!cur || cur.no !== it.kompetensi_no) {
-      cur = { no: it.kompetensi_no, nama: it.kompetensi_nama, items: [] };
+      cur = { no: it.kompetensi_no, nama: it.kompetensi_nama, kompetensi: it.kompetensi || null, buktiUmum: it.buktiUmum || null, items: [] };
       grouped.push(cur);
     }
     cur.items.push(it);
@@ -1490,6 +1491,13 @@ function viewNilai(view, guruId, role, jenis) {
             <span><span class="badge bg-primary me-1">K${k.no}</span> ${e(k.nama)}</span>
             <span class="text-muted small">${k.items.length} indikator</span>
           </div>
+          ${isRA && k.buktiUmum ? `
+          <div class="card-body border-bottom py-2 bg-light">
+            <div class="small text-muted fw-semibold mb-1"><i class="bi bi-eye"></i> Bukti yang dapat diamati:</div>
+            <ul class="small text-muted mb-0 ps-3">
+              ${k.buktiUmum.map(b => `<li>${e(b)}</li>`).join('')}
+            </ul>
+          </div>` : ''}
           <div class="card-body p-0">
             ${k.items.map(it => {
               const pg = PKGDB.getPenggalian(it.id);
@@ -1537,6 +1545,15 @@ function viewNilai(view, guruId, role, jenis) {
         <div class="card mb-3"><div class="card-body py-2">
           <div class="d-flex justify-content-between small"><span>Skala Skor</span><span class="badge bg-light text-dark">0 - ${maxScore}</span></div>
           <div class="d-flex justify-content-between small text-muted"><span>Status</span><span id="save-status" class="save-status-saved">Tersimpan</span></div>
+          ${isRA ? `
+          <div class="mt-2 pt-2 border-top">
+            <div class="small fw-semibold mb-1">Keterangan Skor RA</div>
+            <div class="small text-muted">
+              <span class="badge bg-danger bg-opacity-10 text-dark me-1">0</span> Belum terpenuhi<br>
+              <span class="badge bg-warning bg-opacity-10 text-dark me-1">1</span> Terpenuhi sebagian<br>
+              <span class="badge bg-success bg-opacity-10 text-dark me-1">2</span> Terpenuhi seluruhnya
+            </div>
+          </div>` : ''}
           <div class="text-tiny text-muted mt-2"><i class="bi bi-info-circle"></i> Skor tersimpan otomatis saat dipilih.</div>
         </div></div>
         <div class="card"><div class="card-header small">Kompetensi</div>
@@ -2036,7 +2053,7 @@ function renderRekapPKG(target, data, tugasGuru) {
                   <td>${i}</td>
                   ${j === 0 ? `
                     <td rowspan="${g.peran.length}"><a href="#/guru/${g.id}">${e(g.nama)}</a><div class="small text-muted">${e(g.nip || '')}</div></td>
-                    <td rowspan="${g.peran.length}">${e(g.nama_madrasah || '-')}</td>
+                    <td rowspan="${g.peran.length}">${e(g.nama_madrasah || '-')} ${g.jenjang ? `<span class="badge bg-info text-dark" style="font-size:.6rem">${e(g.jenjang)}</span>` : ''}</td>
                     <td rowspan="${g.peran.length}">${e(g.mapel_kelas || '-')}</td>
                     <td rowspan="${g.peran.length}">${e(peranGuru)}</td>
                   ` : ''}

@@ -230,6 +230,21 @@ function isRAJenjang(guru) {
   return !!(guru && String(guru.jenjang || '').trim().toUpperCase() === 'RA');
 }
 
+// Resolve instrumen dari record penilaian yang sudah tersimpan.
+// Jika record berjenjang RA atau instrumentType PKG_RA → pakai INSTRUMEN_RA.
+// Fallback: pakai instrumen lama (MI/MTs/MA). Backward compatible.
+function resolveInstrument(record) {
+  if (!record) return getInstrumen('GMP');
+  var isRA = (record.jenjang === 'RA' || record.instrumentType === 'PKG_RA');
+  if (isRA) return getInstrumen('GMP', { jenjang: 'RA' });
+  // Data lama tanpa metadata RA → cari guru untuk dapat jenjang asli
+  if (record.guru_id) {
+    var g = getGuru(record.guru_id);
+    return getInstrumen(record.role_code || 'GMP', g);
+  }
+  return getInstrumen(record.role_code || 'GMP');
+}
+
 // Dapatkan instrumen untuk role+guru. Fungsi lama getInstrumen(role) tetap bekerja
 // (guru undefined → bukan RA → instrumen lama). Untuk penilaian RA (role GMP +
 // jenjang guru RA) otomatis memakai window.INSTRUMEN_RA.
@@ -968,7 +983,7 @@ function getRekap(periode) {
 // Expose
 window.PKGDB = {
   KEYS, ROLES,
-  getRoleMeta, getInstrumen,
+  getRoleMeta, getInstrumen, resolveInstrument, isRAJenjang,
   setIndikatorOverride, setKompetensiOverride, resetAllOverrides, countOverrides,
   getPenggalian, setPenggalian, listPenggalian, countPenggalian,
   listGuru, getGuru, findGuruByNIP, saveGuru, deleteGuru, deleteAllGuru,
