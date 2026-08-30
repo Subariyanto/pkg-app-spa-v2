@@ -1510,10 +1510,12 @@ function viewNilai(view, guruId, role, jenis) {
                   ${hasPg ? ' <span class="badge bg-info text-dark" style="font-size:.65rem" title="Ada catatan penggalian data">📋 catatan</span>' : ''}
                 </div>
                 <div class="skor-pill" data-iid="${e(it.id)}">
-                  ${Array.from({ length: maxScore + 1 }, (_, v) => `
+                  ${Array.from({ length: maxScore + 1 }, (_, v) => {
+                    const rubrikTip = (isRA && it.rubrik && it.rubrik[v]) ? ` title="${e(it.rubrik[v])}"` : '';
+                    return `
                     <input type="radio" id="s_${e(it.id)}_${v}" name="skor_${e(it.id)}" value="${v}" ${skorMap[it.id] === v ? 'checked' : ''}>
-                    <label for="s_${e(it.id)}_${v}" class="lbl-${v}">${v}</label>
-                  `).join('')}
+                    <label for="s_${e(it.id)}_${v}" class="lbl-${v}"${rubrikTip}>${v}</label>`;
+                  }).join('')}
                 </div>
               </div>`;
             }).join('')}
@@ -1545,15 +1547,18 @@ function viewNilai(view, guruId, role, jenis) {
         <div class="card mb-3"><div class="card-body py-2">
           <div class="d-flex justify-content-between small"><span>Skala Skor</span><span class="badge bg-light text-dark">0 - ${maxScore}</span></div>
           <div class="d-flex justify-content-between small text-muted"><span>Status</span><span id="save-status" class="save-status-saved">Tersimpan</span></div>
-          ${isRA ? `
+          ${isRA ? (() => {
+            const skala = (window.PKG_RA_META && window.PKG_RA_META.skala) || { label: { 0: 'Belum terpenuhi', 1: 'Terpenuhi sebagian', 2: 'Terpenuhi seluruhnya' } };
+            const labels = skala.label || skala;
+            const badges = ['bg-danger', 'bg-warning', 'bg-success'];
+            return `
           <div class="mt-2 pt-2 border-top">
             <div class="small fw-semibold mb-1">Keterangan Skor RA</div>
             <div class="small text-muted">
-              <span class="badge bg-danger bg-opacity-10 text-dark me-1">0</span> Belum terpenuhi<br>
-              <span class="badge bg-warning bg-opacity-10 text-dark me-1">1</span> Terpenuhi sebagian<br>
-              <span class="badge bg-success bg-opacity-10 text-dark me-1">2</span> Terpenuhi seluruhnya
+              ${[0,1,2].map(v => `<span class="badge ${badges[v]} bg-opacity-10 text-dark me-1">${v}</span> ${e(labels[v] || '')}`).join('<br>')}
             </div>
-          </div>` : ''}
+          </div>`;
+          })() : ''}
           <div class="text-tiny text-muted mt-2"><i class="bi bi-info-circle"></i> Skor tersimpan otomatis saat dipilih.</div>
         </div></div>
         <div class="card"><div class="card-header small">Kompetensi</div>
