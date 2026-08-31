@@ -53,7 +53,7 @@ function getNamaKabupaten(userInfo) {
 function renderShell() {
   const userInfo = window.PKGAuth ? window.PKGAuth.getUserInfo() : { role: 'kamad' };
   const namaKabupaten = getNamaKabupaten(userInfo);
-  const isAdmin = userInfo.role === 'admin' || (window.PKGAuth && window.PKGAuth.isAdminLoggedIn()); // Ketua Pokjawas atau admin Supabase
+  const isAdmin = userInfo.role === 'admin'; // Hanya Ketua Pokjawas (role admin) — bukan trial/pengawas/kamad
   const isPengawas = userInfo.role === 'admin' || userInfo.role === 'pengawas' || userInfo.role === 'trial'; // admin, pengawas & trial
   const isTrialUser = userInfo.role === 'trial';
   const html = `
