@@ -195,10 +195,9 @@ function render() {
   if (s0 === 'kelola-aktivasi') {
     var _ui = window.PKGAuth ? window.PKGAuth.getUserInfo() : { role: '' };
     var _adminLoggedIn = window.PKGAuth && window.PKGAuth.isAdminLoggedIn();
-    // Block: trial & activated non-admin (pengawas/kamad yang sudah punya akun)
-    if (_ui.role === 'trial') return viewForbidden(view);
-    if (_ui.role && _ui.role !== 'admin' && !_adminLoggedIn) return viewForbidden(view);
-    // Allow: admin (role atau sudah login) DAN user yang belum aktivasi (chicken-and-egg fix)
+    // Allow trial & user belum aktivasi — viewKelolaAktivasi akan tampilkan form login admin
+    // Block hanya pengawas/kamad yang SUDAH aktivasi (role pasti, bukan admin, belum login admin)
+    if (_ui.role && _ui.role !== 'admin' && _ui.role !== 'trial' && !_adminLoggedIn) return viewForbidden(view);
     return viewKelolaAktivasi(view);
   }
   if (s0 === 'periode') return viewPeriode(view);
