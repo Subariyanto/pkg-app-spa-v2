@@ -55,6 +55,7 @@ function renderShell() {
   const namaKabupaten = getNamaKabupaten(userInfo);
   const isAdmin = userInfo.role === 'admin'; // Hanya Ketua Pokjawas (role admin) — bukan trial/pengawas/kamad
   const isPengawas = userInfo.role === 'admin' || userInfo.role === 'pengawas' || userInfo.role === 'trial'; // admin, pengawas & trial
+  const canSeeKamad = isPengawas || userInfo.role === 'kamad'; // kamad perlu mengisi data dirinya sendiri
   const isTrialUser = userInfo.role === 'trial';
   const html = `
   <nav class="navbar navbar-expand-xl navbar-dark bg-primary mb-3 no-print">
@@ -70,7 +71,7 @@ function renderShell() {
             <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"><i class="bi bi-database"></i> Data</a>
             <ul class="dropdown-menu">
               <li><a class="dropdown-item" href="#/guru"><i class="bi bi-people"></i> Data Guru</a></li>
-              ${isPengawas ? `<li><a class="dropdown-item" href="#/kamad"><i class="bi bi-person-badge"></i> Data Kamad</a></li>` : ''}
+              ${canSeeKamad ? `<li><a class="dropdown-item" href="#/kamad"><i class="bi bi-person-badge"></i> Data Kamad</a></li>` : ''}
             </ul>
           </li>
           <li class="nav-item dropdown">
