@@ -3628,8 +3628,16 @@ function viewInstrumen(view) {
   view.innerHTML = `
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h4 class="mb-0"><i class="bi bi-list-check"></i> Instrumen PKG</h4>
-    <div class="d-flex gap-2 flex-wrap">
+    <div class="d-flex gap-2 flex-wrap align-items-center">
       ${overCount.total > 0 ? `<button id="btn-reset-all" class="btn btn-sm btn-outline-warning" title="Hapus semua override editan"><i class="bi bi-arrow-counterclockwise"></i> Reset Semua Editan (${overCount.total})</button>` : ''}
+      <div class="dropdown">
+        <button class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-file-earmark-arrow-down"></i> Download Instrumen PDF</button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          ${PKGDB.ROLES.map(r => `<li><a class="dropdown-item" href="#" data-dl-instrumen="${e(r.role_code)}"><i class="bi bi-person-badge"></i> ${e(r.role_label)} <span class="text-muted small">(${e(r.role_code)})</span></a></li>`).join('')}
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="#" data-dl-instrumen="ALL"><i class="bi bi-collection"></i> Semua Peran (satu file per role)</a></li>
+        </ul>
+      </div>
       <a href="#/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Kembali ke Beranda</a>
     </div>
   </div>
@@ -3699,6 +3707,22 @@ function viewInstrumen(view) {
 
   // Wire edit buttons via delegation (more robust against re-renders/collapse interference)
   view.addEventListener('click', (ev) => {
+    const dlBtn = ev.target.closest('[data-dl-instrumen]');
+    if (dlBtn) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const code = dlBtn.dataset.dlInstrumen;
+      if (code === 'ALL') {
+        for (const r of PKGDB.ROLES) {
+          // jeda kecil agar multi-download tidak ditolak browser
+          setTimeout(() => downloadInstrumenPDF(r.role_code), 400);
+        }
+        toast('Mengunduh semua instrumen peran (' + PKGDB.ROLES.length + ' file)');
+      } else {
+        downloadInstrumenPDF(code);
+      }
+      return;
+    }
     const editKompBtn = ev.target.closest('[data-edit-komp]');
     if (editKompBtn) {
       ev.stopPropagation();
@@ -4448,6 +4472,210 @@ function viewCetak(view, guruId, role, jenis) {
       </tr>
     </table>
   </div>`;
+}
+
+// === DOWNLOAD INSTRUMEN PDF (form kosong untuk isi manual) =============
+function downloadInstrumenPDF(roleCode) {
+  const meta = PKGDB.getRoleMeta(roleCode);
+  if (!meta) { toast('Role tidak ditemukan'); return; }
+  const maxScore = meta.max_score;
+  const items = PKGDB.getInstrumen(roleCode);
+
+  const grouped = [];
+  for (const it of items) {
+    let cur = grouped[grouped.length - 1];
+    if (!cur || cur.no !== it.kompetensi_no) {
+      cur = { no: it.kompetensi_no, nama: it.kompetensi_nama, items: [] };
+      grouped.push(cur);
+    }
+    cur.items.push(it);
+  }
+
+  if (!window.jspdf || !window.jspdf.jsPDF) { toast('Library PDF belum siap. Mohon refresh halaman.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  const pageW = doc.internal.pageSize.getWidth();   // 297
+  const pageH = doc.internal.pageSize.getHeight();  // 210
+  const marginL = 14, marginR = 14;
+  const contentW = pageW - marginL - marginR;
+  const bottomM = 18;
+
+  const noW = 11;
+  const skorN = maxScore + 1;
+  const skorW = 13;
+  const skorTotal = skorN * skorW;
+  const indW = contentW - noW - skorTotal;
+  const skorStart = marginL + noW + indW;
+
+  let y = 0;
+
+  const drawTableHeader = (first) => {
+    doc.setFillColor(235, 238, 245);
+    doc.rect(marginL, y, contentW, 9, 'F');
+    doc.setDrawColor(60, 60, 60);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('No', marginL + 3, y + 5.6);
+    doc.text('Indikator', marginL + noW + 3, y + 5.6);
+    // label Skor disusun vertikal: angka di atas, kotak di bawah
+    for (let v = 0; v <= maxScore; v++) {
+      doc.text(String(v), skorStart + v * skorW + skorW / 2, y + 5.6, { align: 'center' });
+    }
+    // border
+    doc.line(marginL, y, marginL + contentW, y);
+    doc.line(marginL, y + 9, marginL + contentW, y + 9);
+    for (let c = 0; c <= noW; c += noW) { /* no-op, col dividers below */ }
+    // vertical dividers
+    doc.line(marginL + noW, y, marginL + noW, y + 9);
+    for (let v = 0; v <= maxScore; v++) {
+      const x = skorStart + v * skorW;
+      doc.line(x, y, x, y + 9);
+    }
+    doc.line(marginL + contentW, y, marginL + contentW, y + 9);
+    y += 9;
+  };
+
+  const ensureSpace = (needed) => {
+    if (y + needed > pageH - bottomM) {
+      doc.addPage();
+      y = 14;
+      drawTableHeader(false);
+    }
+  };
+
+  const drawCheckbox = (cx, cy, size) => {
+    doc.setDrawColor(60, 60, 60);
+    doc.setLineWidth(0.35);
+    doc.rect(cx, cy, size, size);
+  };
+
+  // ---------- KOP + IDENTITAS (hanya di halaman pertama) ----------
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text('INSTRUMEN PENILAIAN KINERJA GURU (PKG)', pageW / 2, 18, { align: 'center' });
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  const roleUp = (meta.role_label || '').toUpperCase();
+  doc.text(roleUp, pageW / 2, 25, { align: 'center' });
+  doc.text('KEMENTERIAN AGAMA KABUPATEN JEMBER', pageW / 2, 31, { align: 'center' });
+
+  // petunjuk skala
+  doc.setFontSize(7);
+  doc.setTextColor(80, 80, 80);
+  const skalaNote = 'Petunjuk: pada kolom 0 s.d. ' + maxScore + ', beri tanda centang (√) pada nilai yang sesuai. ' +
+    '0 = tidak terpenuhi / terendah, ' + maxScore + ' = terpenuhi seluruhnya / tertinggi.';
+  doc.text(skalaNote, marginL, 40, { maxWidth: contentW });
+  doc.setTextColor(0, 0, 0);
+
+  // identitas (garis titik-titik untuk diisi manual)
+  y = 47;
+  const labelW = 45;
+  const ident = [
+    'Nama Guru',
+    'NIP / NUPTK',
+    'Madrasah',
+    'Tanggal Penilaian',
+    'Nama Penilai',
+    'NIP Penilai'
+  ];
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  for (const lb of ident) {
+    doc.text(lb + ' :', marginL, y);
+    const lineX = marginL + labelW + 2;
+    const lineW = contentW - labelW - 2;
+    doc.setDrawColor(120, 120, 120);
+    doc.setLineWidth(0.2);
+    doc.line(lineX, y + 0.8, lineX + lineW, y + 0.8);
+    y += 6.5;
+  }
+  y += 3;
+
+  // ---------- TABEL ----------
+  doc.setFont('helvetica', 'normal');
+  drawTableHeader(true);
+
+  for (const k of grouped) {
+    const kompText = 'Kompetensi ' + k.no + ': ' + k.nama;
+    const kompLines = doc.splitTextToSize(kompText, contentW - 4);
+    const kompH = Math.max(7, 5 + kompLines.length * 3.6);
+    ensureSpace(kompH + 2);
+    doc.setFillColor(222, 228, 240);
+    doc.rect(marginL, y, contentW, kompH, 'F');
+    doc.setDrawColor(60, 60, 60);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text(kompLines, marginL + 2, y + 4.5);
+    y += kompH;
+
+    k.items.forEach((it, idx) => {
+      const indText = String(it.indikator || '');
+      const indLines = doc.splitTextToSize(indText, indW - 3);
+      const rowH = Math.max(7, 4.5 + indLines.length * 3.6);
+      ensureSpace(rowH);
+
+      doc.setDrawColor(120, 120, 120);
+      doc.setLineWidth(0.2);
+      // row borders
+      doc.line(marginL, y, marginL + contentW, y);
+      doc.line(marginL, y + rowH, marginL + contentW, y + rowH);
+      doc.line(marginL + noW, y, marginL + noW, y + rowH);
+      for (let v = 0; v <= maxScore; v++) {
+        const x = skorStart + v * skorW;
+        doc.line(x, y, x, y + rowH);
+      }
+      doc.line(marginL + contentW, y, marginL + contentW, y + rowH);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(String(idx + 1), marginL + noW / 2, y + rowH / 2 + 1.2, { align: 'center' });
+      doc.text(indLines, marginL + noW + 2, y + 4.5);
+
+      // kotak centang
+      const size = 4.5;
+      const boxCy = y + rowH / 2 - size / 2;
+      for (let v = 0; v <= maxScore; v++) {
+        const cx = skorStart + v * skorW + (skorW - size) / 2;
+        drawCheckbox(cx, boxCy, size);
+      }
+      y += rowH;
+    });
+  }
+
+  // ---------- FOOTER / TANDA TANGAN ----------
+  ensureSpace(40);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Catatan Penilai:', marginL, y + 4);
+  y += 8;
+  const catLines = doc.splitTextToSize('..................................................................................................................................................', contentW);
+  doc.text(catLines, marginL, y);
+  y += catLines.length * 4 + 12;
+
+  const penilaiX = pageW - marginR - 70;
+  doc.text('Penilai,', penilaiX + 55, y, { align: 'center' });
+  y += 26;
+  doc.setFont('helvetica', 'bold');
+  doc.text('( ............................................ )', penilaiX + 55, y, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  y += 4;
+  doc.text('NIP. ............................................', penilaiX + 55, y, { align: 'center' });
+
+  // footer nomor halaman di setiap halaman
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(120, 120, 120);
+    doc.text('Aplikasi PKG - Instrumen Penilaian Kinerja Guru', marginL, pageH - 8);
+    doc.text('Halaman ' + p, pageW - marginR, pageH - 8, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+  }
+
+  doc.save('Instrumen_PKG_' + roleCode + '.pdf');
+  toast('Instrumen PDF diunduh');
 }
 
 // === BOOT ===============================================================
