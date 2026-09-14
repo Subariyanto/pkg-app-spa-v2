@@ -381,7 +381,27 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
   }
 
   // === COVER & KATA PENGANTAR ========================================
+  // Resolusi logo: utamakan logo per madrasah/KKM, fallback ke logo default.
+  // Return data URL atau null.
+  function resolveLogo(key) {
+    try {
+      if (!window.PKGDB || !window.PKGDB.getLogo) return null;
+      return window.PKGDB.getLogo(key) || window.PKGDB.getLogo('') || null;
+    } catch (err) { return null; }
+  }
+
+  function renderLogoBox(opts) {
+    opts = opts || {};
+    const size = opts.size || 140;
+    const src = opts.src;
+    if (src) {
+      return `<img src="${src}" alt="Logo" style="width:${size}px; height:${size}px; object-fit:contain;">`;
+    }
+    return `<div style="width:${size}px; height:${size}px; border:2px solid #555; border-radius:50%; display:inline-block; line-height:${size}px;">LOGO</div>`;
+  }
+
   function renderCoverMadrasah(opts) {
+    const logoSrc = (opts && opts.logo) || resolveLogo(opts && opts.nama_madrasah);
     return `<div class="cover">
       <div style="text-align:center; padding-top:2em;">
         <h1 style="margin:0; letter-spacing:3px;">LAPORAN</h1>
@@ -392,7 +412,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
         <h1 style="margin:0; letter-spacing:3px;">Tahun Pelajaran ${tahunAkademik()}</h1>
       </div>
       <div style="text-align:center; margin-top:5em;">
-        <div style="width:140px; height:140px; border:2px solid #555; border-radius:50%; display:inline-block; line-height:140px;">LOGO</div>
+        ${renderLogoBox({ src: logoSrc, size: 140 })}
       </div>
       <div style="text-align:center; margin-top:3em; font-size:1.1em;">
         <strong>${e(opts.nama_madrasah || 'NAMA MADRASAH')}</strong><br>
@@ -407,6 +427,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
   }
 
   function renderCoverKKM(opts) {
+    const logoSrc = (opts && opts.logo) || resolveLogo(opts && opts.nama_kkm);
     return `<div class="cover">
       <div style="text-align:center; padding-top:2em;">
         <h1 style="margin:0; letter-spacing:3px;">LAPORAN</h1>
@@ -418,7 +439,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
         <h1 style="margin:0; letter-spacing:3px;">Tahun Pelajaran ${tahunAkademik()}</h1>
       </div>
       <div style="text-align:center; margin-top:5em;">
-        <div style="width:140px; height:140px; border:2px solid #555; border-radius:50%; display:inline-block; line-height:140px;">LOGO</div>
+        ${renderLogoBox({ src: logoSrc, size: 140 })}
       </div>
       <div style="text-align:center; margin-top:3em; font-size:1.1em;">
         <strong>KKM ${e(opts.nama_kkm || 'NAMA KKM')}</strong><br>
@@ -773,7 +794,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
       throw new Error('Library docx belum siap. Pastikan koneksi internet aktif (CDN), kemudian refresh halaman.');
     }
     const D = window.docx;
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, PageBreak, Header } = D;
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, PageBreak, Header, ImageRun } = D;
 
     const center = AlignmentType.CENTER;
     const justify = AlignmentType.JUSTIFIED;
@@ -805,13 +826,36 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
       return { top: b, bottom: b, left: b, right: b };
     }
 
+    // Logo (opsional) — dari localStorage, dipakai di cover
+    const _logoDataUrl = (function () {
+      try {
+        if (!window.PKGDB || !window.PKGDB.getLogo) return null;
+        const scopeKey = scope === 'madrasah' ? scopeValue : scopeValue;
+        return window.PKGDB.getLogo(scopeKey) || window.PKGDB.getLogo('') || null;
+      } catch (err) { return null; }
+    })();
+    function logoRun() {
+      if (!_logoDataUrl || !ImageRun) return null;
+      try {
+        const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/.exec(_logoDataUrl);
+        if (!m) return null;
+        const b64 = m[2];
+        const bin = (typeof atob === 'function') ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new ImageRun({ data: bytes, transformation: { width: 120, height: 120 } });
+      } catch (err) { return null; }
+    }
+
     // Cover
+    const _logoRun = logoRun();
     const cover = [
       P('LAPORAN', { align: center, bold: true, size: 36 }),
       P('PENILAIAN KINERJA GURU (PKG)', { align: center, bold: true, size: 32 }),
       P('', {}),
       P(`Tahun Pelajaran ${tahunAkademik()}`, { align: center }),
-      P('', {}), P('', {}), P('', {}),
+      P('', {}),
+      ...(_logoRun ? [new Paragraph({ alignment: center, spacing: { before: 200, after: 200 }, children: [_logoRun] })] : [P('', {}), P('', {})]),
       P(scope === 'madrasah' ? scopeValue : `KKM ${scopeValue}`, { align: center, bold: true, size: 28 }),
       P('', {}), P('', {}),
       P(KEMENAG.instansi, { align: center, bold: true }),
@@ -1059,6 +1103,8 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
     // Cari kamad untuk preset
     const kamadList = window.PKGDB.listKamad('');
     const kamad = kamadList.find(k => (k.nama_madrasah || '').trim() === scopeValue.trim()) || null;
+    const _ident = (window.PKGDB.getDokIdentitas && window.PKGDB.getDokIdentitas()) || {};
+    const _logoAda = !!(window.PKGDB.getLogo && (window.PKGDB.getLogo(scopeValue) || window.PKGDB.getLogo('')));
     const data = getPenilaianGuruAtScope('madrasah', scopeValue);
 
     view.innerHTML = `
@@ -1081,14 +1127,18 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
               <input id="f-nip-kamad" class="form-control form-control-sm" value="${e(kamad ? kamad.nip : '')}"></div>
             <hr>
             <div class="mb-2"><label class="form-label small">Nama Pengawas Madrasah</label>
-              <input id="f-nama-peng" class="form-control form-control-sm" value=""></div>
+              <input id="f-nama-peng" class="form-control form-control-sm" value="${e(_ident.nama_pengawas || '')}"></div>
             <div class="mb-2"><label class="form-label small">NIP Pengawas Madrasah</label>
-              <input id="f-nip-peng" class="form-control form-control-sm" value=""></div>
+              <input id="f-nip-peng" class="form-control form-control-sm" value="${e(_ident.nip_pengawas || '')}"></div>
             <div class="mb-2"><label class="form-label small">Kota & Tanggal</label>
               <div class="d-flex gap-2">
                 <input id="f-kota" class="form-control form-control-sm" value="Jember" style="max-width:140px;">
                 <input id="f-tanggal" class="form-control form-control-sm" value="${e(fmtTanggalID(new Date()))}">
               </div>
+            </div>
+            <div class="text-tiny ${_logoAda ? 'text-success' : 'text-muted'}">
+              <i class="bi bi-${_logoAda ? 'check-circle' : 'info-circle'}"></i>
+              ${_logoAda ? 'Logo terpasang — akan muncul di cover laporan.' : 'Belum ada logo. Unggah di menu <a href="#/identitas-dokumen">Logo & Identitas</a>.'}
             </div>
           </div>
         </div>
@@ -1194,6 +1244,8 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
   function viewLaporanKKM(view, scopeValue) {
     if (!scopeValue) { view.innerHTML = `<div class="alert alert-danger">KKM tidak dipilih. <a href="#/laporan-kkm">Kembali</a></div>`; return; }
     const data = getPenilaianGuruAtScope('kkm', scopeValue);
+    const _identK = (window.PKGDB.getDokIdentitas && window.PKGDB.getDokIdentitas()) || {};
+    const _logoAdaK = !!(window.PKGDB.getLogo && (window.PKGDB.getLogo(scopeValue) || window.PKGDB.getLogo('')));
 
     view.innerHTML = `
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -1213,9 +1265,9 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
               <i class="bi bi-check2-circle"></i> Mengetahui: <strong>${e(POKJAWAS.nama)}</strong> (NIP. ${e(POKJAWAS.nip)}), Ketua Pokjawas Madrasah ${e(KEMENAG.kabupaten)} (otomatis dari konfigurasi).
             </div>
             <div class="mb-2"><label class="form-label small">Nama Pengawas Madrasah</label>
-              <input id="f-nama-peng" class="form-control form-control-sm" value=""></div>
+              <input id="f-nama-peng" class="form-control form-control-sm" value="${e(_identK.nama_pengawas || '')}"></div>
             <div class="mb-2"><label class="form-label small">NIP Pengawas Madrasah</label>
-              <input id="f-nip-peng" class="form-control form-control-sm" value=""></div>
+              <input id="f-nip-peng" class="form-control form-control-sm" value="${e(_identK.nip_pengawas || '')}"></div>
             <div class="mb-2"><label class="form-label small">Wilayah</label>
               <input id="f-wilayah" class="form-control form-control-sm" value="${e(KEMENAG.kabupaten)}"></div>
             <div class="mb-2"><label class="form-label small">Kota & Tanggal</label>
@@ -1223,6 +1275,10 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
                 <input id="f-kota" class="form-control form-control-sm" value="Jember" style="max-width:140px;">
                 <input id="f-tanggal" class="form-control form-control-sm" value="${e(fmtTanggalID(new Date()))}">
               </div>
+            </div>
+            <div class="text-tiny ${_logoAdaK ? 'text-success' : 'text-muted'}">
+              <i class="bi bi-${_logoAdaK ? 'check-circle' : 'info-circle'}"></i>
+              ${_logoAdaK ? 'Logo terpasang — akan muncul di cover laporan.' : 'Belum ada logo. Unggah di menu <a href="#/identitas-dokumen">Logo & Identitas</a>.'}
             </div>
           </div>
         </div>

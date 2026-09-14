@@ -15,6 +15,9 @@ const KEYS = {
   periode: 'pkg_v1_periode',
   periode_active: 'pkg_v1_periode_active',
   schema_version: 'pkg_v1_schema_version',
+  // Identitas dokumen (logo madrasah/KKM untuk kop & cover laporan)
+  logo: 'pkg_v1_logo',
+  dok_identitas: 'pkg_v1_dok_identitas',
 };
 
 function load(key, def) {
@@ -720,6 +723,8 @@ function exportAll() {
       penggalian: load(KEYS.penggalian, {}),
       periode: load(KEYS.periode, []),
       periode_active: load(KEYS.periode_active, null),
+      logo: load(KEYS.logo, {}),
+      dok_identitas: load(KEYS.dok_identitas, {}),
     },
   };
 }
@@ -777,6 +782,8 @@ function importAll(json, mode) {
   save(KEYS.penggalian, d.penggalian || {});
   if (d.periode) save(KEYS.periode, d.periode);
   if (d.periode_active != null) save(KEYS.periode_active, d.periode_active);
+  if (d.logo) save(KEYS.logo, d.logo);
+  if (d.dok_identitas) save(KEYS.dok_identitas, d.dok_identitas);
   // Migrasi data backup yang belum punya field periode
   try { runMigrations(); } catch (e) { console.error('Post-import migration failed:', e); }
   return { mode: 'replace', count: (d.guru || []).length };
@@ -802,6 +809,8 @@ function mergeBackups(backups, opts) {
   let curKehadiran = load(KEYS.kehadiran, []);
   let curPkb = load(KEYS.pkb, []);
   let curPenggalian = load(KEYS.penggalian, {});
+  let curLogo = load(KEYS.logo, {});
+  let curDokIdent = load(KEYS.dok_identitas, {});
 
   for (const bk of backups) {
     if (!bk || bk.schema !== 'pkg_v1' || !bk.data) {
@@ -949,9 +958,55 @@ function mergeBackups(backups, opts) {
       }
       save(KEYS.penggalian, curPenggalian);
     }
+
+    // LOGO & IDENTITAS DOKUMEN: incoming hanya mengisi yang belum ada
+    if (d.logo && typeof d.logo === 'object') {
+      for (const [k, v] of Object.entries(d.logo)) {
+        if (v && !curLogo[k]) curLogo[k] = v;
+      }
+      save(KEYS.logo, curLogo);
+    }
+    if (d.dok_identitas && typeof d.dok_identitas === 'object') {
+      for (const [k, v] of Object.entries(d.dok_identitas)) {
+        if (v && !curDokIdent[k]) curDokIdent[k] = v;
+      }
+      save(KEYS.dok_identitas, curDokIdent);
+    }
   }
   return stats;
 }
+
+// === IDENTITAS DOKUMEN (logo & kop laporan) =============================
+function getLogos() {
+  return load(KEYS.logo, {});
+}
+
+// key: '' (default) atau id madrasah/KKM sebagai string
+function getLogo(key) {
+  const all = getLogos();
+  return all[String(key || '')] || null;
+}
+
+// dataUrl: string data:image/... — pass null/' untuk hapus
+function setLogo(key, dataUrl) {
+  const all = getLogos();
+  const k = String(key || '');
+  if (!dataUrl) delete all[k]; else all[k] = dataUrl;
+  save(KEYS.logo, all);
+  return all[k] || null;
+}
+
+function getDokIdentitas() {
+  return load(KEYS.dok_identitas, {});
+}
+
+function setDokIdentitas(fields) {
+  const all = { ...getDokIdentitas(), ...(fields || {}) };
+  save(KEYS.dok_identitas, all);
+  return all;
+}
+
+// === IDENTITAS DOKUMEN END ============================================
 
 // === REKAP ==============================================================
 // Filter rekap berdasarkan periode aktif (default) atau periode tertentu.
@@ -999,4 +1054,5 @@ window.PKGDB = {
   addPeriode, updatePeriode, deletePeriode, countDataPerPeriode,
   exportAll, importAll, mergeBackups, clearAll,
   getRekap,
+  getLogo, setLogo, getLogos, getDokIdentitas, setDokIdentitas,
 };

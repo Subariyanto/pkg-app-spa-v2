@@ -101,6 +101,7 @@ function renderShell() {
             </ul>
           </li>
           <li class="nav-item"><a class="nav-link" href="#/panduan"><i class="bi bi-question-circle"></i> Panduan</a></li>
+          <li class="nav-item"><a class="nav-link" href="#/identitas-dokumen"><i class="bi bi-image"></i> Logo & Identitas</a></li>
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"><i class="bi bi-person-circle"></i> Akun</a>
             <ul class="dropdown-menu dropdown-menu-end">
@@ -192,6 +193,7 @@ function render() {
   if (s0 === 'penilaian') return viewPenilaianHub(view);
   if (s0 === 'instrumen') return viewInstrumen(view);
   if (s0 === 'panduan') return viewPanduan(view);
+  if (s0 === 'identitas-dokumen') return viewIdentitasDokumen(view);
   if (s0 === 'pengaturan-pin') return window.PKGAuth.viewPengaturanPIN(view);
   if (s0 === 'kelola-aktivasi') {
     var _ui = window.PKGAuth ? window.PKGAuth.getUserInfo() : { role: '' };
@@ -4390,6 +4392,173 @@ function viewBackupClear(view) {
   });
 }
 
+// === IDENTITAS DOKUMEN / LOGO ==========================================
+function viewIdentitasDokumen(view) {
+  const ident = PKGDB.getDokIdentitas() || {};
+  const madrasahList = Array.from(new Set(PKGDB.listGuru().map(g => (g.nama_madrasah || '').trim()).filter(Boolean))).sort();
+  const kamadList = PKGDB.listKamad();
+  for (const k of kamadList) {
+    const nm = (k.nama_madrasah || '').trim();
+    if (nm && !madrasahList.includes(nm)) madrasahList.push(nm);
+  }
+  madrasahList.sort();
+
+  const logos = PKGDB.getLogos();
+  const logoSrc = (key) => {
+    const v = logos[String(key || '')];
+    return v ? v : null;
+  };
+
+  const renderLogoBox = (key, label) => {
+    const src = logoSrc(key);
+    return `
+      <div class="card h-100" data-logo-card="${e(key)}">
+        <div class="card-header small fw-semibold">${e(label)}</div>
+        <div class="card-body text-center">
+          <div class="d-flex align-items-center justify-content-center mb-2" style="height:140px; border:1px dashed #bbb; border-radius:8px; background:#fafafa;">
+            ${src ? `<img src="${src}" alt="Logo ${e(label)}" style="max-height:130px; max-width:100%;">` : '<span class="text-muted small">Belum ada logo</span>'}
+          </div>
+          <input type="file" class="form-control form-control-sm logo-file mb-2" data-logo-key="${e(key)}" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+          <div class="d-flex gap-2 justify-content-center">
+            <button class="btn btn-sm btn-outline-danger logo-del" data-logo-key="${e(key)}" ${src ? '' : 'disabled'}><i class="bi bi-trash"></i> Hapus</button>
+          </div>
+          <div class="text-tiny text-muted mt-2">PNG/JPG/SVG, maks 300 KB. Disarankan rasio 1:1.</div>
+        </div>
+      </div>`;
+  };
+
+  view.innerHTML = `
+  <h4 class="mb-1"><i class="bi bi-image"></i> Logo & Identitas Dokumen</h4>
+  <p class="text-muted small mb-3">Logo ini dipakai di <strong>kop/cover Laporan Hasil Penilaian</strong> dan cetak instrumen. Satu logo default untuk semua, atau logo khusus per madrasah.</p>
+
+  <div class="alert alert-info small">
+    <i class="bi bi-info-circle"></i>
+    Logo disimpan di browser ini (localStorage) dan ikut terbawa saat Backup/Restore serta Gabung Backup.
+    Kalau file logo besar, kompres dulu supaya tidak menghabiskan kuota localStorage.
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">${renderLogoBox('', 'Logo Default (semua madrasah)')}</div>
+    ${madrasahList.slice(0, 5).map(m => `<div class="col-md-4">${renderLogoBox(m, m)}</div>`).join('')}
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header"><i class="bi bi-plus-circle"></i> Logo Khusus Madrasah / KKM Lain</div>
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-6">
+          <label class="form-label small">Nama Madrasah / KKM</label>
+          <input id="logo-key-new" class="form-control form-control-sm" list="logo-key-list" placeholder="contoh: RA Al-Hikmah">
+          <datalist id="logo-key-list">${madrasahList.map(m => `<option value="${e(m)}"></option>`).join('')}</datalist>
+        </div>
+        <div class="col-md-6">
+          <button id="btn-logo-add" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg"></i> Tambah / Atur Logo</button>
+        </div>
+      </div>
+      <div id="logo-extra-list" class="mt-3"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><i class="bi bi-fonts"></i> Identitas Tetap pada Dokumen (opsional)</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6"><label class="form-label small">Baris Instansi Atas</label>
+          <input id="di-instansi" class="form-control form-control-sm" value="${e(ident.instansi || 'KEMENTERIAN AGAMA KABUPATEN JEMBER')}"></div>
+        <div class="col-md-6"><label class="form-label small">Nama Kepala Madrasah (default)</label>
+          <input id="di-nama-kamad" class="form-control form-control-sm" value="${e(ident.nama_kamad || '')}"></div>
+        <div class="col-md-6"><label class="form-label small">NIP Kepala Madrasah (default)</label>
+          <input id="di-nip-kamad" class="form-control form-control-sm" value="${e(ident.nip_kamad || '')}"></div>
+        <div class="col-md-6"><label class="form-label small">Nama Pengawas Madrasah (default)</label>
+          <input id="di-nama-pengawas" class="form-control form-control-sm" value="${e(ident.nama_pengawas || '')}"></div>
+      </div>
+      <button id="btn-di-save" class="btn btn-sm btn-primary mt-3"><i class="bi bi-check-lg"></i> Simpan Identitas</button>
+    </div>
+  </div>`;
+
+  function refresh() { viewIdentitasDokumen(view); }
+
+  function readLogoFile(file) {
+    return new Promise((resolve, reject) => {
+      if (file.size > 300 * 1024) { reject(new Error('Ukuran file > 300 KB. Kompres dulu ya.')); return; }
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = () => reject(new Error('Gagal membaca file'));
+      fr.readAsDataURL(file);
+    });
+  }
+
+  $$('.logo-file').forEach(inp => {
+    inp.addEventListener('change', async () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return;
+      try {
+        const dataUrl = await readLogoFile(f);
+        PKGDB.setLogo(inp.dataset.logoKey, dataUrl);
+        toast('Logo tersimpan');
+        refresh();
+      } catch (err) { toast(err.message, 'danger'); }
+    });
+  });
+
+  $$('.logo-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!confirm('Hapus logo ini?')) return;
+      PKGDB.setLogo(btn.dataset.logoKey, null);
+      toast('Logo dihapus');
+      refresh();
+    });
+  });
+
+  const extraKeys = Object.keys(logos).filter(k => k !== '' && !madrasahList.slice(0, 5).includes(k));
+  const extraList = document.getElementById('logo-extra-list');
+  if (extraList) {
+    extraList.innerHTML = extraKeys.length === 0
+      ? '<div class="text-muted small">Belum ada logo khusus lain.</div>'
+      : `<div class="row g-3">${extraKeys.map(k => `<div class="col-md-4">${renderLogoBox(k, k)}</div>`).join('')}</div>`;
+    extraList.querySelectorAll('.logo-file').forEach(inp => {
+      inp.addEventListener('change', async () => {
+        const f = inp.files && inp.files[0];
+        if (!f) return;
+        try {
+          const dataUrl = await readLogoFile(f);
+          PKGDB.setLogo(inp.dataset.logoKey, dataUrl);
+          toast('Logo tersimpan');
+          refresh();
+        } catch (err) { toast(err.message, 'danger'); }
+      });
+    });
+    extraList.querySelectorAll('.logo-del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!confirm('Hapus logo ini?')) return;
+        PKGDB.setLogo(btn.dataset.logoKey, null);
+        toast('Logo dihapus');
+        refresh();
+      });
+    });
+  }
+
+  const btnAdd = document.getElementById('btn-logo-add');
+  if (btnAdd) btnAdd.addEventListener('click', () => {
+    const key = (document.getElementById('logo-key-new').value || '').trim();
+    if (!key) { toast('Isi nama madrasah/KKM dulu', 'danger'); return; }
+    PKGDB.setLogo(key, PKGDB.getLogo(key));
+    toast('Siap. Pilih file logo untuk ' + key);
+    refresh();
+  });
+
+  const btnDi = document.getElementById('btn-di-save');
+  if (btnDi) btnDi.addEventListener('click', () => {
+    PKGDB.setDokIdentitas({
+      instansi: document.getElementById('di-instansi').value.trim(),
+      nama_kamad: document.getElementById('di-nama-kamad').value.trim(),
+      nip_kamad: document.getElementById('di-nip-kamad').value.trim(),
+      nama_pengawas: document.getElementById('di-nama-pengawas').value.trim(),
+    });
+    toast('Identitas disimpan');
+  });
+}
+
 // === CETAK ==============================================================
 function viewCetak(view, guruId, role, jenis) {
   const g = PKGDB.getGuru(guruId);
@@ -4429,6 +4598,10 @@ function viewCetak(view, guruId, role, jenis) {
   </div>
   ${_trialWM}
   <div id="cetak-area" style="position:relative;z-index:2;font-family: 'Times New Roman', serif; font-size: 11pt; color:#000; background:white; padding: 1cm; max-width: 21cm; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,.1);">
+    ${(() => {
+      const _logo = (PKGDB.getLogo && (PKGDB.getLogo(g.nama_madrasah) || PKGDB.getLogo(''))) || null;
+      return _logo ? `<div style="text-align:center; margin-bottom:4px;"><img src="${_logo}" alt="Logo" style="height:70px; object-fit:contain;"></div>` : '';
+    })()}
     <div style="text-align:center; margin-bottom: 12px;">
       <div><b>KEMENTERIAN AGAMA KABUPATEN JEMBER</b></div>
       <h3 style="margin:.4em 0;">${e((PKGDB.getGuru(g.id) && String(PKGDB.getGuru(g.id).jenjang||'').toUpperCase()==='RA' && role==='GMP') ? 'HASIL PENILAIAN KINERJA GURU RAUDHATUL ATHFAL' : ('INSTRUMEN PENILAIAN KINERJA ' + meta.role_label.toUpperCase()))}</h3>
