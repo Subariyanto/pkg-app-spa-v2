@@ -2969,14 +2969,26 @@ function isKBCIndikator(text) {
   return KBC_KEYWORDS.some(k => t.includes(k));
 }
 
+// Semua instrumen aktif: non-RA (window.INSTRUMEN) + RA (window.INSTRUMEN_RA).
+// ID RA sudah ber-namespace sendiri ('RA-01-01') sehingga aman digabung.
+function getAllInstrumen() {
+  const list = [];
+  for (const it of (window.INSTRUMEN || [])) {
+    list.push({ ...it, id: it.id || `${it.role_code}_${it.kompetensi_no}_${it.indikator_no}` });
+  }
+  for (const it of (window.INSTRUMEN_RA || [])) {
+    list.push({ ...it, id: it.id || `${it.role_code}_${it.kompetensi_no}_${it.indikator_no}` });
+  }
+  return list;
+}
+
 function getKBCIndikatorIds() {
   const ids = new Set();
   const items = [];
-  for (const it of window.INSTRUMEN) {
+  for (const it of getAllInstrumen()) {
     if (isKBCIndikator(it.indikator)) {
-      const id = `${it.role_code}_${it.kompetensi_no}_${it.indikator_no}`;
-      ids.add(id);
-      items.push({ ...it, id });
+      ids.add(it.id);
+      items.push(it);
     }
   }
   return { ids, items };
@@ -3056,7 +3068,7 @@ function viewMonitoringKBC(view) {
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div>
       <h4 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Monitoring Kurikulum Berbasis Cinta</h4>
-      <small class="text-muted">Periode: ${periodeLabel} &middot; ${kbcItems.length} indikator KBC teridentifikasi dari ${window.INSTRUMEN.length} total</small>
+      <small class="text-muted">Periode: ${periodeLabel} &middot; ${kbcItems.length} indikator KBC teridentifikasi dari ${getAllInstrumen().length} total</small>
     </div>
     <div class="d-flex gap-2 flex-wrap">
       <button id="btn-print-kbc" class="btn btn-sm btn-outline-secondary"><i class="bi bi-printer"></i> Cetak</button>
