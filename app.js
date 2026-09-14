@@ -1598,8 +1598,11 @@ function viewNilai(view, guruId, role, jenis) {
       $('#save-status').className = 'save-status-saving';
       try {
         PKGDB.setSkor(pen.id, iid, r.value);
-        // Find komp_no from instrumen
-        const inst = window.INSTRUMEN.find(i => `${i.role_code}_${i.kompetensi_no}_${i.indikator_no}` === iid);
+        // Find komp_no dari instrumen yang sedang aktif (bukan dari window.INSTRUMEN
+        // global). Untuk RA, id berbentuk 'RA-01-01' sehingga pola rekonstruksi
+        // role_code_komp_ind tidak pernah cocok → ringkasan skor per komponen
+        // tidak ikut ter-update.
+        const inst = instrumen.find(i => i.id === iid);
         if (inst) refreshKompSummary(inst.kompetensi_no);
         refreshNilai();
         $('#save-status').textContent = 'Tersimpan';
