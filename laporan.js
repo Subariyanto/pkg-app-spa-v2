@@ -54,6 +54,13 @@
   }
 
   function _rawKabUser() {
+    // Prioritas 1: isian di menu "Logo & Identitas" (paling mudah diubah user).
+    try {
+      if (window.PKGDB && window.PKGDB.getKabupatenTersimpan) {
+        const v = window.PKGDB.getKabupatenTersimpan();
+        if (v) return String(v);
+      }
+    } catch (err) {}
     try {
       if (window.PKGAuth && window.PKGAuth.getUserInfo) {
         const u = window.PKGAuth.getUserInfo() || {};

@@ -1000,6 +1000,17 @@ function getDokIdentitas() {
   return load(KEYS.dok_identitas, {});
 }
 
+// Kabupaten/kota yang bisa diatur user lewat menu "Logo & Identitas".
+// Ini sumber utama untuk tulisan "Pokjawas <Kabupaten>" di beranda & laporan.
+function getKabupatenTersimpan() {
+  const ident = getDokIdentitas();
+  return String(ident.kabupaten || '').trim();
+}
+
+function setKabupatenTersimpan(v) {
+  return setDokIdentitas({ kabupaten: String(v == null ? '' : v).trim() });
+}
+
 function setDokIdentitas(fields) {
   const all = { ...getDokIdentitas(), ...(fields || {}) };
   save(KEYS.dok_identitas, all);
@@ -1055,4 +1066,5 @@ window.PKGDB = {
   exportAll, importAll, mergeBackups, clearAll,
   getRekap,
   getLogo, setLogo, getLogos, getDokIdentitas, setDokIdentitas,
+  getKabupatenTersimpan, setKabupatenTersimpan,
 };

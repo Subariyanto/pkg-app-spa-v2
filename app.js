@@ -60,11 +60,23 @@ function normalizeNamaKabupaten(v) {
   return s;
 }
 
-// Nama kabupaten untuk hero/navbar/footer. Diambil dari data isian user
-// (mis. "Kabupaten Lumajang"). Kalau kosong, diturunkan dari Identitas Dokumen /
-// data guru / data kamad — supaya tidak selalu jatuh ke teks hardcode "Jember".
+// Nama kabupaten untuk hero/navbar/footer. Urutan sumber:
+// 1) isian di menu "Logo & Identitas" (paling mudah diubah user),
+// 2) data isian saat registrasi/aktivasi akun,
+// 3) baris instansi Identitas Dokumen, 4) data guru, 5) data kamad.
+// Tujuannya supaya tidak selalu jatuh ke teks hardcode "Jember".
+function getKabupatenSumber(userInfo) {
+  try {
+    if (window.PKGDB && window.PKGDB.getKabupatenTersimpan) {
+      const v = window.PKGDB.getKabupatenTersimpan();
+      if (v) return v;
+    }
+  } catch (err) {}
+  return (userInfo && userInfo.kabupaten) || '';
+}
+
 function getNamaKabupaten(userInfo) {
-  const langsung = normalizeNamaKabupaten(userInfo && userInfo.kabupaten);
+  const langsung = normalizeNamaKabupaten(getKabupatenSumber(userInfo));
   if (langsung) return langsung;
   try {
     if (window.PKGDB) {
@@ -84,6 +96,23 @@ function getNamaKabupaten(userInfo) {
     console.warn('getNamaKabupaten fallback error:', err);
   }
   return 'Kabupaten/Kota';
+}
+
+// Perbarui tulisan "Pokjawas <Kabupaten>" dari data terbaru tanpa reload.
+// Dipanggil setelah menyimpan menu "Logo & Identitas".
+function refreshKabupatenUI() {
+  try {
+    const userInfo = window.PKGAuth ? window.PKGAuth.getUserInfo() : { role: 'kamad' };
+    const namaKabupaten = getNamaKabupaten(userInfo);
+    const isPengawas = userInfo.role === 'pengawas' || userInfo.role === 'admin';
+    const roleLabel = { admin: 'Ketua Pokjawas', pengawas: 'Pengawas', kamad: 'Kepala Madrasah', trial: 'Trial' }[userInfo.role] || userInfo.role;
+    const roleContext = isPengawas ? `Pokjawas ${namaKabupaten}` : (userInfo.madrasah || namaKabupaten);
+    document.querySelectorAll('[data-role-label]').forEach(el => { el.textContent = roleLabel; });
+    document.querySelectorAll('[data-role-context]').forEach(el => { el.textContent = roleContext; });
+    document.querySelectorAll('[data-nama-kabupaten]').forEach(el => { el.textContent = namaKabupaten; });
+  } catch (err) {
+    console.warn('refreshKabupatenUI error:', err);
+  }
 }
 
 function renderShell() {
@@ -155,7 +184,7 @@ function renderShell() {
   <div class="container-fluid pb-5" id="view"></div>
   <footer class="text-center text-muted small py-3 no-print">
     Aplikasi PKG &middot; berbasis SK Dirjen Pendis No. 6673 Tahun 2019 &middot; disesuaikan dengan KMA No. 1503 Tahun 2025 (Kurikulum Berbasis Cinta &amp; Pembelajaran Mendalam)
-    <div class="mt-1">Aplikasi ini dibuat oleh : Subariyanto, S.Pd, M.Pd.I. Ketua Pokjawas Madrasah ${e(namaKabupaten)}</div>
+    <div class="mt-1">Aplikasi ini dibuat oleh : Subariyanto, S.Pd, M.Pd.I. Ketua Pokjawas Madrasah <span data-nama-kabupaten>${e(namaKabupaten)}</span></div>
   </footer>`;
   document.body.insertAdjacentHTML('afterbegin', html);
 }
@@ -280,7 +309,7 @@ function viewBeranda(view) {
       <div class="beranda-hero-text">
         <div class="beranda-hero-greeting">${greeting},</div>
         <div class="beranda-hero-name">${e(userName)}</div>
-        <div class="beranda-hero-role"><i class="bi bi-shield-check"></i> ${e(roleLabel)} &middot; ${e(roleContext)}</div>
+        <div class="beranda-hero-role" data-role-label="x" data-role-context="x" data-hero-role><i class="bi bi-shield-check"></i> <span data-role-label>${e(roleLabel)}</span> &middot; <span data-role-context>${e(roleContext)}</span></div>
       </div>
       <div class="beranda-hero-emblem"><i class="bi bi-mortarboard-fill"></i></div>
     </div>
@@ -4500,6 +4529,10 @@ function viewIdentitasDokumen(view) {
     <div class="card-header"><i class="bi bi-fonts"></i> Identitas Tetap pada Dokumen (opsional)</div>
     <div class="card-body">
       <div class="row g-3">
+        <div class="col-md-6"><label class="form-label small">Kabupaten/Kota <span class="text-muted">(dipakai di beranda: "Pokjawas ..." & laporan)</span></label>
+          <input id="di-kabupaten" class="form-control form-control-sm" list="di-kabupaten-list" placeholder="Contoh: Kabupaten Jember" value="${e(ident.kabupaten || getKabupatenSumber(window.PKGAuth ? window.PKGAuth.getUserInfo() : {}))}">
+          <datalist id="di-kabupaten-list">${['Kabupaten Jember', 'Kota Jember', 'Kabupaten Lumajang', 'Kabupaten Bondowoso', 'Kabupaten Situbondo', 'Kabupaten Banyuwangi', 'Kabupaten Malang', 'Kota Malang', 'Kabupaten Probolinggo', 'Kabupaten Pasuruan'].map(k => `<option value="${e(k)}"></option>`).join('')}</datalist>
+          <div class="text-tiny text-muted mt-1">Boleh ditulis "Kabupaten Lumajang" atau "Lumajang" — tampilannya otomatis diringkas.</div></div>
         <div class="col-md-6"><label class="form-label small">Baris Instansi Atas</label>
           <input id="di-instansi" class="form-control form-control-sm" value="${e(ident.instansi || ('KEMENTERIAN AGAMA ' + getNamaKabupaten(window.PKGAuth ? window.PKGAuth.getUserInfo() : {}).toUpperCase()))}"></div>
         <div class="col-md-6"><label class="form-label small">Nama Kepala Madrasah (default)</label>
@@ -4586,13 +4619,18 @@ function viewIdentitasDokumen(view) {
 
   const btnDi = document.getElementById('btn-di-save');
   if (btnDi) btnDi.addEventListener('click', () => {
+    const kabEl = document.getElementById('di-kabupaten');
     PKGDB.setDokIdentitas({
       instansi: document.getElementById('di-instansi').value.trim(),
       nama_kamad: document.getElementById('di-nama-kamad').value.trim(),
       nip_kamad: document.getElementById('di-nip-kamad').value.trim(),
       nama_pengawas: document.getElementById('di-nama-pengawas').value.trim(),
     });
+    if (kabEl) PKGDB.setKabupatenTersimpan(kabEl.value.trim());
     toast('Identitas disimpan');
+    // Perbarui tulisan "Pokjawas <Kabupaten>" di navbar/beranda tanpa reload.
+    refreshKabupatenUI();
+    viewIdentitasDokumen(view);
   });
 }
 
