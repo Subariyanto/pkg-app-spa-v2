@@ -10,12 +10,14 @@
     nama: 'SUBARIYANTO, S.Pd, M.Pd.I.',
     nip: '197002122005011004',
     jabatan: 'Ketua Pokjawas Madrasah',
-    wilayah: 'Kabupaten Jember',
+    // Getter: mengikuti data isian user (kabupaten), bukan hardcode "Kabupaten Jember".
+    get wilayah() { return namaWilayahKabupaten(); },
   };
 
   const KEMENAG = {
     instansi: 'Kementerian Agama',
-    kabupaten: 'Kabupaten Jember',
+    // Getter: menyesuaikan kabupaten/kota dari data isian (mis. "Kabupaten Lumajang").
+    get kabupaten() { return namaWilayahKabupaten(); },
     provinsi: 'Provinsi Jawa Timur',
   };
 
@@ -37,6 +39,60 @@
     if (s === null || s === undefined) return '';
     return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   };
+
+  // --- Nama kabupaten/kota dinamis (mengikuti data isian) ------------------
+  // Buang awalan "Kabupaten"/"Kab."/"Kota" + seragamkan Title Case.
+  function _normKab(v) {
+    let s = String(v == null ? '' : v).trim();
+    if (!s) return '';
+    s = s.replace(/^(kabupaten|kab\.?|kota)\s+/i, '').trim();
+    const letters = s.replace(/[^A-Za-z]/g, '');
+    if (letters && (letters === letters.toUpperCase() || letters === letters.toLowerCase())) {
+      s = s.toLowerCase().replace(/\b([a-z])/g, function (m, c) { return c.toUpperCase(); });
+    }
+    return s;
+  }
+
+  function _rawKabUser() {
+    try {
+      if (window.PKGAuth && window.PKGAuth.getUserInfo) {
+        const u = window.PKGAuth.getUserInfo() || {};
+        if (u.kabupaten) return String(u.kabupaten);
+      }
+    } catch (err) {}
+    try {
+      if (window.PKGDB) {
+        const cand = []
+          .concat(window.PKGDB.listGuru ? window.PKGDB.listGuru() : [])
+          .concat(window.PKGDB.listKamad ? window.PKGDB.listKamad() : []);
+        for (const row of cand) { if (row && row.kabupaten) return String(row.kabupaten); }
+      }
+    } catch (err) {}
+    return '';
+  }
+
+  // contoh: "Kabupaten Lumajang" / "Kota Malang" (fallback: "Kabupaten Jember")
+  function namaWilayahKabupaten() {
+    const raw = _rawKabUser();
+    const bare = _normKab(raw);
+    if (bare) return (/^\s*kota\b/i.test(raw) ? 'Kota ' : 'Kabupaten ') + bare;
+    try {
+      const ident = (window.PKGDB && window.PKGDB.getDokIdentitas && window.PKGDB.getDokIdentitas()) || {};
+      const m = String(ident.instansi || '').match(/(kabupaten|kab\.?|kota)\s+([A-Za-z'. ]+)$/i);
+      if (m) {
+        const b2 = _normKab(m[2]);
+        if (b2) return (/^kota/i.test(m[1]) ? 'Kota ' : 'Kabupaten ') + b2;
+      }
+    } catch (err) {}
+    return 'Kabupaten Jember';
+  }
+
+  // Nama kota untuk tempat/tanggal tanda tangan, contoh: "Lumajang" (fallback "Jember").
+  function namaKotaTtd() {
+    const bare = _normKab(_rawKabUser());
+    if (bare) return bare;
+    return _normKab(namaWilayahKabupaten()) || 'Jember';
+  }
 
   function fmtTanggalID(d) {
     if (!d) d = new Date();
@@ -342,7 +398,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
         <div style="margin:0;">NIP. ${e(opts.nip_pengawas || '....................')}</div>
       </td>
       <td style="width:50%; vertical-align:top; text-align:center; line-height:1.4;">
-        <div>${e(opts.kota || 'Jember')}, ${e(tgl)}</div>
+        <div>${e(opts.kota || namaKotaTtd())}, ${e(tgl)}</div>
         <div><strong>Kepala Madrasah</strong></div>
         <div style="height:90px;"></div>
         <div style="margin:0;"><strong><u>${e(opts.nama_kamad || '....................')}</u></strong></div>
@@ -370,7 +426,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
         <div style="margin:0;">NIP. ${e(POKJAWAS.nip)}</div>
       </td>
       <td style="width:50%; vertical-align:top; text-align:center; line-height:1.4;">
-        <div>${e(opts.kota || 'Jember')}, ${e(tgl)}</div>
+        <div>${e(opts.kota || namaKotaTtd())}, ${e(tgl)}</div>
         <div><strong>Pengawas Madrasah</strong></div>
         <div>&nbsp;</div>
         <div style="height:90px;"></div>
@@ -473,7 +529,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
       <tr>
         <td style="width:55%;"></td>
         <td style="width:45%; text-align:center;">
-          <div>${e(opts.kota || 'Jember')}, ${e(opts.tanggal || fmtTanggalID(new Date()))}</div>
+          <div>${e(opts.kota || namaKotaTtd())}, ${e(opts.tanggal || fmtTanggalID(new Date()))}</div>
           <div style="margin-top:0.4em;"><strong>${e(penyusun)},</strong></div>
           <div style="height:90px;"></div>
           ${namaLine}
@@ -526,7 +582,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
       nip_kamad: k.nip || opts.nip_kamad,
       nama_pengawas: opts.nama_pengawas,
       nip_pengawas: opts.nip_pengawas,
-      kota: opts.kota || 'Jember',
+      kota: opts.kota || namaKotaTtd(),
       tanggal: opts.tanggal,
     });
     const ruangLingkup = `<p>Laporan ini mencakup pelaksanaan Penilaian Kinerja Guru pada ${e(scopeValue)} untuk Tahun Pelajaran ${tahunAkademik()} semester ${semesterAktif()}, meliputi seluruh guru sasaran sebanyak ${data.summary.total} orang dengan beragam peran dan tugas tambahan.</p>`;
@@ -632,7 +688,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
       nama_kkm: scopeValue,
       nama_pengawas: opts.nama_pengawas,
       nip_pengawas: opts.nip_pengawas,
-      kota: opts.kota || 'Jember',
+      kota: opts.kota || namaKotaTtd(),
       tanggal: opts.tanggal,
     });
     const profilKKM = `
@@ -872,7 +928,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
       P(`Puji syukur kami panjatkan ke hadirat Allah SWT yang telah melimpahkan rahmat dan hidayah-Nya, sehingga penyusunan Laporan Penilaian Kinerja Guru (PKG) pada ${obj} Tahun Pelajaran ${tahunAkademik()} dapat diselesaikan dengan baik.`, { align: justify }),
       P('Laporan ini disusun sebagai bentuk pertanggungjawaban pelaksanaan Penilaian Kinerja Guru sebagaimana diamanatkan dalam Peraturan Menteri Agama Nomor 38 Tahun 2018, sekaligus menjadi dasar pembinaan dan pengembangan keprofesian berkelanjutan.', { align: justify }),
       P('Kami menyampaikan terima kasih kepada seluruh pihak yang telah berkontribusi. Kritik dan saran konstruktif sangat kami harapkan demi penyempurnaan pelaksanaan PKG pada periode-periode berikutnya.', { align: justify }),
-      P(`Jember, ${fmtTanggalID(new Date())}`, { align: right }),
+      P(`${namaKotaTtd()}, ${fmtTanggalID(new Date())}`, { align: right }),
       P(scope === 'madrasah' ? 'Kepala Madrasah,' : 'Pengawas Madrasah,', { align: right }),
       PB(),
     ];
@@ -901,7 +957,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
       P(`Tahun Pelajaran ${tahunAkademik()}`, { align: center }),
       P('', {}),
       P('Telah diperiksa dan disahkan untuk digunakan sebagai dokumen resmi pelaksanaan Penilaian Kinerja Guru.', { align: justify }),
-      P(`Jember, ${fmtTanggalID(new Date())}`, { align: right }),
+      P(`${namaKotaTtd()}, ${fmtTanggalID(new Date())}`, { align: right }),
       tableSimpleRows(pengesahanRows),
       PB(),
     ];
@@ -1132,7 +1188,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
               <input id="f-nip-peng" class="form-control form-control-sm" value="${e(_ident.nip_pengawas || '')}"></div>
             <div class="mb-2"><label class="form-label small">Kota & Tanggal</label>
               <div class="d-flex gap-2">
-                <input id="f-kota" class="form-control form-control-sm" value="Jember" style="max-width:140px;">
+                <input id="f-kota" class="form-control form-control-sm" value="${e(namaKotaTtd())}" style="max-width:140px;">
                 <input id="f-tanggal" class="form-control form-control-sm" value="${e(fmtTanggalID(new Date()))}">
               </div>
             </div>
@@ -1272,7 +1328,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
               <input id="f-wilayah" class="form-control form-control-sm" value="${e(KEMENAG.kabupaten)}"></div>
             <div class="mb-2"><label class="form-label small">Kota & Tanggal</label>
               <div class="d-flex gap-2">
-                <input id="f-kota" class="form-control form-control-sm" value="Jember" style="max-width:140px;">
+                <input id="f-kota" class="form-control form-control-sm" value="${e(namaKotaTtd())}" style="max-width:140px;">
                 <input id="f-tanggal" class="form-control form-control-sm" value="${e(fmtTanggalID(new Date()))}">
               </div>
             </div>
@@ -1332,6 +1388,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
   window.PKGLaporan = window.PKGLaporan || {};
   Object.assign(window.PKGLaporan, {
     POKJAWAS, KEMENAG, LANDASAN_HUKUM_DEFAULT,
+    namaWilayahKabupaten, namaKotaTtd,
     fmtTanggalID, tahunAkademik, semesterAktif, sebutanByNilai,
     getPenilaianGuruAtScope, computeRataKompetensi,
     narasiLatarBelakang, narasiTujuan, narasiManfaat,

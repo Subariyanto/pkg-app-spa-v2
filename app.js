@@ -46,8 +46,44 @@ const NAMA_BLN = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'J
 const NAMA_BLN_SHORT = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
 // === LAYOUT =============================================================
+// Rapikan nama kabupaten/kota: buang awalan "Kabupaten"/"Kab."/"Kota" supaya
+// tampilannya ringkas ("Kabupaten Lumajang" -> "Lumajang"), dan seragamkan
+// penulisan ALL CAPS / huruf kecil jadi Title Case ("JEMBER" -> "Jember").
+function normalizeNamaKabupaten(v) {
+  let s = String(v == null ? '' : v).trim();
+  if (!s) return '';
+  s = s.replace(/^(kabupaten|kab\.?|kota)\s+/i, '').trim();
+  const letters = s.replace(/[^A-Za-z]/g, '');
+  if (letters && (letters === letters.toUpperCase() || letters === letters.toLowerCase())) {
+    s = s.toLowerCase().replace(/\b([a-z])/g, function (m, c) { return c.toUpperCase(); });
+  }
+  return s;
+}
+
+// Nama kabupaten untuk hero/navbar/footer. Diambil dari data isian user
+// (mis. "Kabupaten Lumajang"). Kalau kosong, diturunkan dari Identitas Dokumen /
+// data guru / data kamad — supaya tidak selalu jatuh ke teks hardcode "Jember".
 function getNamaKabupaten(userInfo) {
-  return (userInfo && userInfo.kabupaten || '').trim() || 'Kabupaten/Kota';
+  const langsung = normalizeNamaKabupaten(userInfo && userInfo.kabupaten);
+  if (langsung) return langsung;
+  try {
+    if (window.PKGDB) {
+      const ident = window.PKGDB.getDokIdentitas ? (window.PKGDB.getDokIdentitas() || {}) : {};
+      const m = String(ident.instansi || '').match(/(?:kabupaten|kab\.?|kota)\s+([A-Za-z'.À-ÿ -]+)$/i);
+      const dariIdent = normalizeNamaKabupaten(m ? m[1] : '');
+      if (dariIdent) return dariIdent;
+      const kandidat = []
+        .concat(window.PKGDB.listGuru ? window.PKGDB.listGuru() : [])
+        .concat(window.PKGDB.listKamad ? window.PKGDB.listKamad() : []);
+      for (const row of kandidat) {
+        const n = normalizeNamaKabupaten(row && row.kabupaten);
+        if (n) return n;
+      }
+    }
+  } catch (err) {
+    console.warn('getNamaKabupaten fallback error:', err);
+  }
+  return 'Kabupaten/Kota';
 }
 
 function renderShell() {
@@ -3410,6 +3446,7 @@ function viewForbidden(view) {
 }
 
 function viewPanduan(view) {
+  const namaKabupaten = getNamaKabupaten(window.PKGAuth ? window.PKGAuth.getUserInfo() : {});
   view.innerHTML = `
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h4 class="mb-0"><i class="bi bi-question-circle"></i> Panduan Penggunaan Aplikasi PKG</h4>
@@ -3529,7 +3566,7 @@ function viewPanduan(view) {
           <p><strong>Tanda tangan:</strong></p>
           <ul>
             <li><em>Laporan Madrasah:</em> Kepala Madrasah → mengetahui Pengawas Madrasah.</li>
-            <li><em>Laporan KKM:</em> Pengawas Madrasah → mengetahui Ketua Pokjawas Madrasah Kabupaten Jember (otomatis: SUBARIYANTO, S.Pd, M.Pd.I. / NIP. 197002122005011004).</li>
+            <li><em>Laporan KKM:</em> Pengawas Madrasah → mengetahui Ketua Pokjawas Madrasah ${e(namaKabupaten)} (otomatis: SUBARIYANTO, S.Pd, M.Pd.I. / NIP. 197002122005011004).</li>
           </ul>
         </div>
       </div>
@@ -4464,7 +4501,7 @@ function viewIdentitasDokumen(view) {
     <div class="card-body">
       <div class="row g-3">
         <div class="col-md-6"><label class="form-label small">Baris Instansi Atas</label>
-          <input id="di-instansi" class="form-control form-control-sm" value="${e(ident.instansi || 'KEMENTERIAN AGAMA KABUPATEN JEMBER')}"></div>
+          <input id="di-instansi" class="form-control form-control-sm" value="${e(ident.instansi || ('KEMENTERIAN AGAMA ' + getNamaKabupaten(window.PKGAuth ? window.PKGAuth.getUserInfo() : {}).toUpperCase()))}"></div>
         <div class="col-md-6"><label class="form-label small">Nama Kepala Madrasah (default)</label>
           <input id="di-nama-kamad" class="form-control form-control-sm" value="${e(ident.nama_kamad || '')}"></div>
         <div class="col-md-6"><label class="form-label small">NIP Kepala Madrasah (default)</label>
@@ -4603,7 +4640,7 @@ function viewCetak(view, guruId, role, jenis) {
       return _logo ? `<div style="text-align:center; margin-bottom:4px;"><img src="${_logo}" alt="Logo" style="height:70px; object-fit:contain;"></div>` : '';
     })()}
     <div style="text-align:center; margin-bottom: 12px;">
-      <div><b>KEMENTERIAN AGAMA KABUPATEN JEMBER</b></div>
+      <div><b>KEMENTERIAN AGAMA ${e(getNamaKabupaten(window.PKGAuth ? window.PKGAuth.getUserInfo() : {}).toUpperCase())}</b></div>
       <h3 style="margin:.4em 0;">${e((PKGDB.getGuru(g.id) && String(PKGDB.getGuru(g.id).jenjang||'').toUpperCase()==='RA' && role==='GMP') ? 'HASIL PENILAIAN KINERJA GURU RAUDHATUL ATHFAL' : ('INSTRUMEN PENILAIAN KINERJA ' + meta.role_label.toUpperCase()))}</h3>
       <div>Tahun Pelajaran ${e(g.tahun_pelajaran || '-')} &middot; Semester ${e(g.semester || '-')}</div>
       <div>Jenis: <b>${jenis.toUpperCase()}</b></div>
@@ -4746,7 +4783,7 @@ function downloadInstrumenPDF(roleCode) {
   doc.setFont('helvetica', 'normal');
   const roleUp = (meta.role_label || '').toUpperCase();
   doc.text(roleUp, pageW / 2, 25, { align: 'center' });
-  doc.text('KEMENTERIAN AGAMA KABUPATEN JEMBER', pageW / 2, 31, { align: 'center' });
+  doc.text('KEMENTERIAN AGAMA ' + getNamaKabupaten(window.PKGAuth ? window.PKGAuth.getUserInfo() : {}).toUpperCase(), pageW / 2, 31, { align: 'center' });
 
   // petunjuk skala
   doc.setFontSize(7);

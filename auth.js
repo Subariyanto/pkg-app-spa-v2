@@ -280,7 +280,7 @@
         <div class="auth-logo">\
           <i class="bi bi-shield-check"></i>\
           <h2>Aktivasi & Registrasi Akun</h2>\
-          <p>PKG Pokjawasmad Kab. Jember (KMA 1503)</p>\
+          <p>PKG Pokjawas Madrasah (KMA 1503)</p>\
         </div>\
         <div class="auth-err" id="auth-reg-err"></div>\
         <div class="auth-info" id="auth-reg-info"></div>\
@@ -555,7 +555,7 @@
         <div class="auth-logo">\
           <i class="bi bi-shield-lock"></i>\
           <h2>Login Pengguna</h2>\
-          <p>' + escapeHtml(regName ? 'Selamat datang, ' + regName : 'PKG Pokjawasmad Kab. Jember') + '</p>\
+          <p>' + escapeHtml(regName ? 'Selamat datang, ' + regName : 'PKG Pokjawas Madrasah') + '</p>\
         </div>\
         <div class="auth-err" id="auth-login-err"></div>\
         <div class="form-group">\
