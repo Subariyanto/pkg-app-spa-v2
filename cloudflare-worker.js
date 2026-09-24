@@ -189,11 +189,12 @@ export default {
         const dup = await env.DB.prepare('SELECT id FROM pkg_accounts WHERE username = ?').bind(userL).first();
         if (dup) return json({ ok: false, status: 'USERNAME_TAKEN', message: 'Username sudah dipakai. Pilih username lain.' }, 409, headers);
 
-        // Identitas: utamakan data dari kode (dibuat admin), fallback ke input user.
-        const nama = row.nama || (body.nama ? String(body.nama).trim() : null) || null;
-        const madrasah = row.madrasah || (body.madrasah ? String(body.madrasah).trim() : null) || null;
-        const kabupaten = row.kabupaten || (body.kabupaten ? String(body.kabupaten).trim() : null) || null;
-        const role = row.role || (body.role ? String(body.role).trim() : null) || null;
+        // Identitas: kini DIISI PENGGUNA sendiri. Kalau admin kebetulan mengisi data
+        // di kode, kode dipakai sebagai nilai default (pengguna tetap bisa mengganti).
+        const nama = (body.nama ? String(body.nama).trim() : null) || row.nama || null;
+        const madrasah = (body.madrasah ? String(body.madrasah).trim() : null) || row.madrasah || null;
+        const kabupaten = (body.kabupaten ? String(body.kabupaten).trim() : null) || row.kabupaten || null;
+        const role = (body.role ? String(body.role).trim() : null) || row.role || null;
 
         const salt = randomSalt();
         const ph = await hashPassword(String(password), salt);
@@ -290,10 +291,10 @@ export default {
         const dup = await env.DB.prepare('SELECT id FROM pkg_accounts WHERE username = ?').bind(userL).first();
         if (dup) return json({ ok: false, status: 'USERNAME_TAKEN', message: 'Username sudah dipakai. Pilih username lain.' }, 409, headers);
 
-        const nama = row.nama || (body.nama ? String(body.nama).trim() : null) || null;
-        const madrasah = row.madrasah || (body.madrasah ? String(body.madrasah).trim() : null) || null;
-        const kabupaten = row.kabupaten || (body.kabupaten ? String(body.kabupaten).trim() : null) || null;
-        const role = row.role || (body.role ? String(body.role).trim() : null) || null;
+        const nama = (body.nama ? String(body.nama).trim() : null) || row.nama || null;
+        const madrasah = (body.madrasah ? String(body.madrasah).trim() : null) || row.madrasah || null;
+        const kabupaten = (body.kabupaten ? String(body.kabupaten).trim() : null) || row.kabupaten || null;
+        const role = (body.role ? String(body.role).trim() : null) || row.role || null;
 
         const salt = randomSalt();
         const ph = await hashPassword(String(password), salt);

@@ -311,14 +311,14 @@
           <input id="reg-fullname" type="text" placeholder="Nama Lengkap beserta gelar" autocomplete="off">\
         </div>\
         \
-        <div class="form-group" id="group-madrasah">\
-          <label>Nama Madrasah <span style="color:#c0392b;">(dikunci dari kode)</span></label>\
-          <input id="reg-madrasah" type="text" placeholder="Terisi otomatis dari kode aktivasi" autocomplete="off" readonly style="background:#f3f6f4; color:#444;">\
+        <div class="form-group">\
+          <label>Nama Madrasah</label>\
+          <input id="reg-madrasah" type="text" placeholder="Contoh: MTs Negeri 1 Jember" autocomplete="organization">\
         </div>\
         \
         <div class="form-group">\
-          <label>Kabupaten/Kota Asal <span style="color:#c0392b;">(dikunci dari kode)</span></label>\
-          <input id="reg-kabupaten" type="text" placeholder="Terisi otomatis dari kode aktivasi" autocomplete="address-level2" readonly style="background:#f3f6f4; color:#444;">\
+          <label>Kabupaten/Kota Asal</label>\
+          <input id="reg-kabupaten" type="text" placeholder="Contoh: Kabupaten Jember" autocomplete="address-level2">\
         </div>\
         \
         <div class="form-group">\
@@ -356,6 +356,9 @@
       </div>';
 
     var roleSel = document.getElementById('reg-role');
+    if (roleSel) {
+      roleSel.addEventListener('change', function () { roleSel.dataset.touched = '1'; });
+    }
     var linkLogin = document.getElementById('link-to-login');
     if (linkLogin) {
       linkLogin.addEventListener('click', function () {
@@ -426,28 +429,39 @@
         return;
       }
       lastCheckedCode = code;
-      if (codeInfoEl) { codeInfoEl.style.color = '#1e40af'; codeInfoEl.textContent = 'Kode valid. Menyinkronkan nama madrasah...'; }
+      if (codeInfoEl) { codeInfoEl.style.color = '#1e40af'; codeInfoEl.textContent = 'Memeriksa kode aktivasi...'; }
       if (!window.SupabaseSync || !window.SupabaseSync.codeDetails) {
-        if (codeInfoEl) { codeInfoEl.style.color = '#888'; codeInfoEl.textContent = 'Nama madrasah akan diambil saat aktivasi.'; }
+        if (codeInfoEl) { codeInfoEl.style.color = '#888'; codeInfoEl.textContent = 'Kode akan diverifikasi saat aktivasi.'; }
         return;
       }
       var res = await window.SupabaseSync.codeDetails(code);
       if (res && res.ok) {
-        if (madrasahInput) madrasahInput.value = res.madrasah || '';
-        if (kabupatenInput) kabupatenInput.value = res.kabupaten || '';
+        // Identitas DIISI PENGGUNA. Data dari kode (kalau admin mengisinya) hanya
+        // dipakai sebagai prefill dan TIDAK menimpa apa pun yang sudah ditulis pengguna.
+        if (res.madrasah) {
+          if (madrasahInput) madrasahInput.placeholder = res.madrasah;
+          if (madrasahInput && !madrasahInput.value.trim()) madrasahInput.value = res.madrasah;
+        }
+        if (res.kabupaten) {
+          if (kabupatenInput) kabupatenInput.placeholder = res.kabupaten;
+          if (kabupatenInput && !kabupatenInput.value.trim()) kabupatenInput.value = res.kabupaten;
+        }
         if (res.role && roleSel) {
+          var hasRole = false;
           for (var i = 0; i < roleSel.options.length; i++) {
-            if (roleSel.options[i].value === res.role) { roleSel.value = res.role; break; }
+            if (roleSel.options[i].value === res.role) { hasRole = true; break; }
           }
-          if (typeof roleSel.onchange === 'function') roleSel.onchange();
-          roleSel.dispatchEvent(new Event('change'));
+          if (hasRole) {
+            if (!roleSel.dataset.touched) roleSel.value = res.role;
+            if (typeof roleSel.onchange === 'function') roleSel.onchange();
+            roleSel.dispatchEvent(new Event('change'));
+          }
         }
         if (codeInfoEl) {
           codeInfoEl.style.color = '#1f5d3a';
           codeInfoEl.innerHTML = '<i class="bi bi-check-circle"></i> Kode valid' +
-            (res.madrasah ? ' — <b>' + escapeHtml(res.madrasah) + '</b>' : '') +
-            (res.nama ? ' (' + escapeHtml(res.nama) + ')' : '') +
-            '. Nama madrasah dikunci dari kode.';
+            (res.nama ? ' ' + escapeHtml(res.nama) : '') +
+            '. Identitas (nama/madrasah/kabupaten) silakan isi sendiri di bawah.';
         }
       } else {
         var st = (res && res.status) || '';
@@ -458,7 +472,7 @@
         } else if (st === 'INVALID_CODE') {
           if (codeInfoEl) { codeInfoEl.style.color = '#c0392b'; codeInfoEl.textContent = 'Kode tidak ditemukan di server.'; }
         } else {
-          if (codeInfoEl) { codeInfoEl.style.color = '#888'; codeInfoEl.textContent = (res && res.message) || 'Nama madrasah akan diambil saat aktivasi.'; }
+          if (codeInfoEl) { codeInfoEl.style.color = '#888'; codeInfoEl.textContent = (res && res.message) || 'Kode akan diverifikasi saat aktivasi.'; }
         }
       }
     }
@@ -484,8 +498,8 @@
       errEl.textContent = '';
       infoEl.textContent = '';
 
-      if (!code || !username || !fullname || !password) {
-        errEl.textContent = 'Harap isi semua kolom yang wajib (kode, username, nama lengkap, password)!';
+      if (!code || !username || !fullname || !madrasah || !password) {
+        errEl.textContent = 'Harap isi semua kolom yang wajib (kode, username, nama lengkap, nama madrasah, password)!';
         return;
       }
       if (role !== 'trial' && !validateCodeFormat(code)) {
@@ -565,7 +579,11 @@
           username,
           password,
           deviceId,
-          navigator.userAgent || ''
+          navigator.userAgent || '',
+          fullname,
+          madrasah,
+          kabupaten,
+          (role && role !== 'trial') ? role : null
         );
       }
 

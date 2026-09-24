@@ -5499,8 +5499,8 @@ function viewKelolaAktivasi(view) {
 
     html += '</tbody></table></div></div></div>\
     <div class="alert alert-info small">\
-      <i class="bi bi-info-circle"></i> <strong>1 Kode = 1 Akun.</strong> Nama madrasah & identitas lain dikunci dari kode aktivasi (hanya admin yang bisa mengubah). \
-      Akun bisa login dari perangkat mana pun; setiap perangkat hanya dicatat sebagai log.\
+      <i class="bi bi-info-circle"></i> <strong>1 Kode = 1 Akun.</strong> Identitas (nama, madrasah, kabupaten, role) diisi sendiri oleh pengguna saat aktivasi — admin tidak perlu repot. \
+      Akun bisa login dari perangkat mana pun; setiap perangkat hanya dicatat sebagai log. Admin tetap bisa memperbaiki identitas di tab Kelola Akun.\
     </div>';
 
     view.innerHTML = html;
@@ -5633,7 +5633,7 @@ function viewKelolaAktivasi(view) {
       '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>' +
       '</div>' +
       '<div class="modal-body">' +
-      '<div class="alert alert-warning small py-2"><i class="bi bi-lock"></i> Identitas dikunci dari kode. Hanya admin yang bisa mengubah di sini.</div>' +
+      '<div class="alert alert-info small py-2"><i class="bi bi-info-circle"></i> Identitas diisi pengguna saat aktivasi. Admin bisa memperbaiki/melengkapi di sini.</div>' +
       '<div class="mb-2"><label class="form-label small fw-bold">Username</label><input type="text" class="form-control" value="' + escapeHtml(a.username || '') + '" readonly></div>' +
       '<div class="mb-2"><label class="form-label fw-bold">Nama Lengkap</label><input type="text" class="form-control" id="ea-nama" value="' + escapeHtml(a.nama || '') + '"></div>' +
       '<div class="mb-2"><label class="form-label fw-bold">Nama Madrasah</label><input type="text" class="form-control" id="ea-madrasah" value="' + escapeHtml(a.madrasah || '') + '"></div>' +
@@ -5779,9 +5779,9 @@ function viewKelolaAktivasi(view) {
       '<input type="text" class="form-control" id="buat-kabupaten" placeholder="Contoh: Kabupaten Jember">' +
       '</div>' +
       '<div class="mb-3">' +
-      '<label class="form-label fw-bold">Role <span class="text-danger">*</span></label>' +
+      '<label class="form-label fw-bold">Role <span class="text-muted small">(opsional — pengguna boleh pilih sendiri)</span></label>' +
       '<select class="form-select" id="buat-role">' +
-      '<option value="">-- Pilih Role --</option>' +
+      '<option value="">-- Tidak ditentukan (pengguna pilih saat aktivasi) --</option>' +
       '<option value="pengawas">Pengawas - Pembina</option>' +
       '<option value="kamad">Kepala Madrasah (Kamad)</option>' +
       '</select>' +
@@ -5819,10 +5819,7 @@ function viewKelolaAktivasi(view) {
       var catatan = document.getElementById('buat-catatan').value.trim();
       var jumlah = parseInt(document.getElementById('buat-jumlah').value, 10);
 
-      if (!role) {
-        toast('Pilih role terlebih dahulu.', 'warning');
-        return;
-      }
+      // Role opsional: kalau Admin tidak memilih, pengguna mengisi sendiri saat aktivasi.
 
       // Disable form
       btnSubmit.disabled = true;
