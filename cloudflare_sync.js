@@ -171,7 +171,72 @@
     return getJson('admin/stats');
   }
 
-  // --- ACTIVATE CODE (user side) ---
+  // --- ACTIVATE ACCOUNT (user side) — 1 kode aktivasi = 1 AKUN ---
+  // Identitas (nama/madrasah/kabupaten/role) diutamakan dari kode (server);
+  // parameter di sini hanya fallback bila kode tidak memuatnya.
+  // Mengembalikan objek: { ok, status, account, message }
+  async function activateAccount(code, username, password, deviceId, deviceInfo, nama, madrasah, kabupaten, role) {
+    return postJson('activate-account', {
+      code: code,
+      username: username,
+      password: password,
+      device_id: deviceId,
+      user_agent: deviceInfo || '',
+      nama: nama || null,
+      madrasah: madrasah || null,
+      kabupaten: kabupaten || null,
+      role: role || null
+    });
+  }
+
+  // --- LOGIN ACCOUNT (user side) — wajib online, akun bisa dari perangkat mana pun ---
+  // Mengembalikan objek: { ok, status, account, message }
+  async function loginAccount(username, password, deviceId, deviceInfo) {
+    return postJson('login-account', {
+      username: username,
+      password: password,
+      device_id: deviceId,
+      user_agent: deviceInfo || ''
+    });
+  }
+
+  // --- ADMIN: AKUN ---
+  async function adminListAccounts() { return getJson('admin/list-accounts'); }
+  async function adminResetPassword(username, newPassword) {
+    return postJson('admin/reset-password', { username: username, new_password: newPassword });
+  }
+  async function adminEditAccount(username, nama, madrasah, kabupaten, role) {
+    return postJson('admin/edit-account', { username: username, nama: nama || null, madrasah: madrasah || null, kabupaten: kabupaten || null, role: role || null });
+  }
+  async function adminRevokeAccount(username) { return postJson('admin/revoke-account', { username: username }); }
+  async function adminUnrevokeAccount(username) { return postJson('admin/unrevoke-account', { username: username }); }
+  async function adminDeleteAccount(username) { return postJson('admin/delete-account', { username: username }); }
+  async function adminAccountDevices(username) {
+    return getJson('admin/account-devices?username=' + encodeURIComponent(username));
+  }
+
+  // --- CLAIM ACCOUNT (migrasi akun lama 1-kode-1-perangkat → 1-kode-1-akun) ---
+  // Hanya berhasil jika dijalankan di PERANGKAT yang dulu mengaktivasi kode tsb.
+  async function claimAccount(code, username, password, deviceId, deviceInfo, nama, madrasah, kabupaten, role) {
+    return postJson('claim-account', {
+      code: code,
+      username: username,
+      password: password,
+      device_id: deviceId,
+      user_agent: deviceInfo || '',
+      nama: nama || null,
+      madrasah: madrasah || null,
+      kabupaten: kabupaten || null,
+      role: role || null
+    });
+  }
+
+  // --- CODE DETAILS (auto-isi & kunci identitas saat aktivasi) ---
+  async function codeDetails(code) {
+    return getJson('code-details?code=' + encodeURIComponent(code));
+  }
+
+  // --- ACTIVATE CODE (lama, dipertahankan untuk kompatibilitas) ---
   async function activateCode(code, deviceId, nama, username, madrasah, kabupaten, role, deviceInfo) {
     var result = await postJson('activate-code', {
       code: code,
@@ -207,7 +272,20 @@
     adminDeleteCode: adminDeleteCode,
     adminDeleteAllCodes: adminDeleteAllCodes,
     adminStats: adminStats,
+    // Akun (1 kode = 1 akun)
+    activateAccount: activateAccount,
+    claimAccount: claimAccount,
+    loginAccount: loginAccount,
+    adminListAccounts: adminListAccounts,
+    adminResetPassword: adminResetPassword,
+    adminEditAccount: adminEditAccount,
+    adminRevokeAccount: adminRevokeAccount,
+    adminUnrevokeAccount: adminUnrevokeAccount,
+    adminDeleteAccount: adminDeleteAccount,
+    adminAccountDevices: adminAccountDevices,
+    // Lega­cy
     activateCode: activateCode,
-    checkCodeStatus: checkCodeStatus
+    checkCodeStatus: checkCodeStatus,
+    codeDetails: codeDetails
   };
 })();

@@ -25,6 +25,7 @@
   var KEY_USER_KABUPATEN = 'pkg_v1_user_kabupaten';
 
   var KEY_LOGGED_IN = 'pkg_v1_logged_in';
+  var KEY_ACCOUNT_VERIFIED = 'pkg_v1_account_verified_at'; // kapan terakhir verifikasi akun ke server
 
   // Trial keys & config
   var KEY_TRIAL_START = 'pkg_v1_trial_start';
@@ -288,6 +289,7 @@
         <div class="form-group">\
           <label>Kode Aktivasi (PKG-XXXX-XXXX)</label>\
           <input id="reg-code" type="text" placeholder="Masukkan kode dari Admin/Ketua Pokjawas" autocomplete="off" style="text-transform: uppercase;">\
+          <div id="reg-code-info" style="font-size:.8rem; margin-top:.35rem; line-height:1.35;"></div>\
         </div>\
         \
         <div class="form-group">\
@@ -310,13 +312,13 @@
         </div>\
         \
         <div class="form-group" id="group-madrasah">\
-          <label>Nama Madrasah</label>\
-          <input id="reg-madrasah" type="text" placeholder="Contoh: MTs Negeri 1 Jember" autocomplete="off">\
+          <label>Nama Madrasah <span style="color:#c0392b;">(dikunci dari kode)</span></label>\
+          <input id="reg-madrasah" type="text" placeholder="Terisi otomatis dari kode aktivasi" autocomplete="off" readonly style="background:#f3f6f4; color:#444;">\
         </div>\
         \
         <div class="form-group">\
-          <label>Kabupaten/Kota Asal</label>\
-          <input id="reg-kabupaten" type="text" placeholder="Contoh: Kabupaten Jember" autocomplete="address-level2">\
+          <label>Kabupaten/Kota Asal <span style="color:#c0392b;">(dikunci dari kode)</span></label>\
+          <input id="reg-kabupaten" type="text" placeholder="Terisi otomatis dari kode aktivasi" autocomplete="address-level2" readonly style="background:#f3f6f4; color:#444;">\
         </div>\
         \
         <div class="form-group">\
@@ -336,7 +338,7 @@
         \
         <div class="device-info-text">\
           Device ID: ' + getDeviceId() + '<br>\
-          Satu Kode Aktivasi hanya berlaku untuk satu perangkat browser ini.\
+          Satu Kode Aktivasi hanya berlaku untuk SATU AKUN. Setelah aktif, akun bisa login dari perangkat mana pun.\
         </div>\
         \
         <div style="text-align:center; margin-top:1rem; font-size:.85rem;">\
@@ -397,6 +399,75 @@
       });
     }
 
+    // --- Auto-isi identitas dari kode aktivasi (dikunci; tidak bisa diedit user) ---
+    var codeInput = document.getElementById('reg-code');
+    var codeInfoEl = document.getElementById('reg-code-info');
+    var madrasahInput = document.getElementById('reg-madrasah');
+    var kabupatenInput = document.getElementById('reg-kabupaten');
+    var lastCheckedCode = '';
+
+    function clearCodeInfo() {
+      if (codeInfoEl) { codeInfoEl.textContent = ''; codeInfoEl.style.color = ''; }
+      if (madrasahInput) { madrasahInput.value = ''; }
+      if (kabupatenInput) { kabupatenInput.value = ''; }
+      lastCheckedCode = '';
+    }
+
+    async function checkCodeAndFill() {
+      if (!codeInput) return;
+      var code = codeInput.value.trim().toUpperCase();
+      if (code === lastCheckedCode) return;
+      if (!validateCodeFormat(code)) {
+        if (code) {
+          if (codeInfoEl) { codeInfoEl.style.color = '#c0392b'; codeInfoEl.textContent = 'Format kode belum benar (PKG-XXXX-XXXX).'; }
+        } else {
+          clearCodeInfo();
+        }
+        return;
+      }
+      lastCheckedCode = code;
+      if (codeInfoEl) { codeInfoEl.style.color = '#1e40af'; codeInfoEl.textContent = 'Kode valid. Menyinkronkan nama madrasah...'; }
+      if (!window.SupabaseSync || !window.SupabaseSync.codeDetails) {
+        if (codeInfoEl) { codeInfoEl.style.color = '#888'; codeInfoEl.textContent = 'Nama madrasah akan diambil saat aktivasi.'; }
+        return;
+      }
+      var res = await window.SupabaseSync.codeDetails(code);
+      if (res && res.ok) {
+        if (madrasahInput) madrasahInput.value = res.madrasah || '';
+        if (kabupatenInput) kabupatenInput.value = res.kabupaten || '';
+        if (res.role && roleSel) {
+          for (var i = 0; i < roleSel.options.length; i++) {
+            if (roleSel.options[i].value === res.role) { roleSel.value = res.role; break; }
+          }
+          if (typeof roleSel.onchange === 'function') roleSel.onchange();
+          roleSel.dispatchEvent(new Event('change'));
+        }
+        if (codeInfoEl) {
+          codeInfoEl.style.color = '#1f5d3a';
+          codeInfoEl.innerHTML = '<i class="bi bi-check-circle"></i> Kode valid' +
+            (res.madrasah ? ' — <b>' + escapeHtml(res.madrasah) + '</b>' : '') +
+            (res.nama ? ' (' + escapeHtml(res.nama) + ')' : '') +
+            '. Nama madrasah dikunci dari kode.';
+        }
+      } else {
+        var st = (res && res.status) || '';
+        if (st === 'ALREADY_USED') {
+          if (codeInfoEl) { codeInfoEl.style.color = '#c0392b'; codeInfoEl.textContent = (res.message || 'Kode sudah dipakai') + ' — gunakan menu Login.'; }
+        } else if (st === 'REVOKED') {
+          if (codeInfoEl) { codeInfoEl.style.color = '#c0392b'; codeInfoEl.textContent = 'Kode telah dicabut Admin.'; }
+        } else if (st === 'INVALID_CODE') {
+          if (codeInfoEl) { codeInfoEl.style.color = '#c0392b'; codeInfoEl.textContent = 'Kode tidak ditemukan di server.'; }
+        } else {
+          if (codeInfoEl) { codeInfoEl.style.color = '#888'; codeInfoEl.textContent = (res && res.message) || 'Nama madrasah akan diambil saat aktivasi.'; }
+        }
+      }
+    }
+
+    if (codeInput) {
+      codeInput.addEventListener('blur', checkCodeAndFill);
+      codeInput.addEventListener('change', checkCodeAndFill);
+    }
+
     document.getElementById('btn-reg-submit').addEventListener('click', async function () {
       var errEl = document.getElementById('auth-reg-err');
       var infoEl = document.getElementById('auth-reg-info');
@@ -413,8 +484,12 @@
       errEl.textContent = '';
       infoEl.textContent = '';
 
-      if (!code || !username || !fullname || !kabupaten || !password) {
-        errEl.textContent = 'Harap isi semua kolom yang wajib!';
+      if (!code || !username || !fullname || !password) {
+        errEl.textContent = 'Harap isi semua kolom yang wajib (kode, username, nama lengkap, password)!';
+        return;
+      }
+      if (role !== 'trial' && !validateCodeFormat(code)) {
+        errEl.textContent = 'Format kode aktivasi tidak valid! Format: PKG-XXXX-XXXX';
         return;
       }
       if (username.length < 4) {
@@ -452,49 +527,82 @@
       }
 
       btn.disabled = true;
-      btn.textContent = 'Memvalidasi kode...';
-      infoEl.textContent = 'Mengecek kode ke server...';
+      btn.textContent = 'Membuat akun...';
+      infoEl.textContent = 'Membuat akun di server...';
 
       var deviceId = getDeviceId();
-      var result = await window.SupabaseSync.activateCode(
-        code,
-        deviceId,
-        fullname,
-        username,
-        madrasah,
-        kabupaten,
-        role,
-        navigator.userAgent || ''
-      );
+
+      // MIGRASI AKUN LAMA (sistem 1 kode = 1 perangkat).
+      // Kalau perangkat ini dulu sudah mengaktivasi kode yang sama, jangan buat akun
+      // baru — klaim kode lama menjadi AKUN agar bisa dipakai dari perangkat lain.
+      var storedCode = (localStorage.getItem(KEY_ACTIVATION_CODE) || '').trim().toUpperCase();
+      var isLegacyDevice = localStorage.getItem(KEY_ACTIVATED) === 'true' && storedCode === code;
+      var result;
+      if (isLegacyDevice && window.SupabaseSync.claimAccount) {
+        infoEl.textContent = 'Mengubah aktivasi lama menjadi akun...';
+        result = await window.SupabaseSync.claimAccount(
+          code,
+          username,
+          password,
+          deviceId,
+          navigator.userAgent || '',
+          fullname,
+          madrasah,
+          kabupaten,
+          (role && role !== 'trial') ? role : null
+        );
+        if (result && result.ok) {
+          result.message = 'Akun lama berhasil diubah menjadi akun server. Sekarang bisa login dari perangkat mana pun.';
+        } else if (result && result.status === 'ALREADY_USED') {
+          // Kode sudah diklaim (mungkin dari perangkat ini sebelumnya) → lanjut login biasa.
+          result = null;
+        }
+      }
+
+      if (!result) {
+        result = await window.SupabaseSync.activateAccount(
+          code,
+          username,
+          password,
+          deviceId,
+          navigator.userAgent || ''
+        );
+      }
 
       btn.disabled = false;
       btn.textContent = 'Aktifkan & Daftar Akun';
 
-      // result bisa string atau object
-      var status = (typeof result === 'string') ? result : (result && result.data) || result;
-
-      if (status === 'ACTIVATED' || (result && result === 'ACTIVATED')) {
-        // Simpan aktivasi & akun ke localStorage
+      if (result && result.ok) {
+        // Akun dibuat di server. Simpan identitas (dari SERVER, bukan input klien)
+        // + tandai teraktivasi. Password TIDAK disimpan di perangkat.
+        var acc = result.account || {};
         localStorage.setItem(KEY_ACTIVATED, 'true');
         localStorage.setItem(KEY_ACTIVATION_CODE, code);
-        localStorage.setItem(KEY_USER_ROLE, role);
-        localStorage.setItem(KEY_USER_USERNAME, username);
-        localStorage.setItem(KEY_USER_PASSWORD_HASH, fnv1aHash(password));
-        localStorage.setItem(KEY_USER_FULLNAME, fullname);
-        localStorage.setItem(KEY_USER_MADRASAH, madrasah);
-        localStorage.setItem(KEY_USER_KABUPATEN, kabupaten);
+        localStorage.setItem(KEY_USER_ROLE, acc.role || role);
+        localStorage.setItem(KEY_USER_USERNAME, acc.username || username);
+        localStorage.setItem(KEY_USER_FULLNAME, acc.nama || fullname);
+        localStorage.setItem(KEY_USER_MADRASAH, acc.madrasah || madrasah);
+        localStorage.setItem(KEY_USER_KABUPATEN, acc.kabupaten || kabupaten);
+        localStorage.setItem(KEY_ACCOUNT_VERIFIED, String(Date.now()));
 
-        alert('Aktivasi berhasil! Kode tervalidasi di server. Akun telah dibuat. Silakan login.');
+        alert('Akun berhasil dibuat!\n\nUsername: ' + (acc.username || username) +
+          '\n\nSilakan login. Akun ini bisa dipakai di perangkat mana pun.');
         location.hash = '#/';
         location.reload();
-      } else if (status === 'INVALID_CODE') {
-        errEl.textContent = 'Kode aktivasi tidak ditemukan di server. Periksa kembali kode Anda.';
-      } else if (status === 'ALREADY_USED') {
-        errEl.textContent = 'Kode aktivasi ini sudah dipakai perangkat lain.';
-      } else if (status === 'REVOKED') {
-        errEl.textContent = 'Kode aktivasi telah dicabut (revoke) oleh Admin.';
       } else {
-        errEl.textContent = 'Gagal aktivasi: ' + (status || 'kesalahan tidak diketahui') + '. Cek koneksi internet.';
+        var st = (result && result.status) || '';
+        var msg = (result && result.message) || '';
+        if (st === 'INVALID_CODE') {
+          errEl.textContent = 'Kode aktivasi tidak ditemukan di server. Periksa kembali kode Anda.';
+        } else if (st === 'ALREADY_USED') {
+          errEl.textContent = msg || 'Kode ini sudah dipakai untuk membuat akun. Satu kode hanya untuk satu akun.';
+        } else if (st === 'USERNAME_TAKEN') {
+          errEl.textContent = msg || 'Username sudah dipakai. Pilih username lain.';
+        } else if (st === 'REVOKED') {
+          errEl.textContent = 'Kode aktivasi telah dicabut (revoke) oleh Admin.';
+        } else {
+          errEl.textContent = 'Gagal aktivasi: ' + (msg || 'kesalahan tidak diketahui') + '. Cek koneksi internet.';
+        }
       }
     });
   }
@@ -649,13 +757,79 @@
         return;
       }
 
-      // Server menjawab tapi kredensial bukan admin valid → mungkin akun pengguna biasa.
-      tryLocalLogin(username, password);
+      // Server menjawab tapi kredensial bukan admin valid → coba sebagai akun pengguna (online).
+      tryServerUserLogin(username, password);
+    }
+
+    // Login pengguna diverifikasi ke SERVER (akun bisa dipakai di perangkat mana pun).
+    // Identitas (nama/madrasah/kabupaten/role) berasal dari server dan dikunci.
+    async function tryServerUserLogin(username, password) {
+      if (!window.SupabaseSync || !window.SupabaseSync.hasConfig()) {
+        errEl.textContent = 'Server tidak terkonfigurasi. Hubungi Admin.';
+        return;
+      }
+      if (!window.SupabaseSync.loginAccount) {
+        errEl.textContent = 'Aplikasi perlu dimuat ulang (versi lama). Tutup lalu buka kembali. ';
+        return;
+      }
+
+      errEl.textContent = 'Memeriksa akun...';
+      var res = null;
+      try {
+        var timeout = new Promise(function (_, reject) {
+          setTimeout(function () { reject(new Error('timeout')); }, 10000);
+        });
+        res = await Promise.race([
+          window.SupabaseSync.loginAccount(username, password, getDeviceId(), navigator.userAgent || ''),
+          timeout
+        ]);
+      } catch (e) { res = null; }
+
+      if (res === null || res === undefined) {
+        errEl.textContent = 'Server tidak terjangkau. Periksa koneksi internet, lalu coba lagi.';
+        return;
+      }
+
+      if (res && res.ok && res.account) {
+        applyServerAccount(res.account);
+        localStorage.setItem(KEY_ACTIVATED, 'true');
+        localStorage.setItem(KEY_ACCOUNT_VERIFIED, String(Date.now()));
+        localStorage.setItem(KEY_LOGGED_IN, 'true');
+        var ov = document.getElementById('pkg-auth-overlay');
+        if (ov) ov.remove();
+        if (typeof window.render === 'function') window.render();
+        return;
+      }
+
+      var st = (res && res.status) || '';
+      var msg = (res && res.message) || '';
+      if (st === 'NO_ACCOUNT') {
+        errEl.textContent = 'Akun tidak ditemukan di server. Pastikan username benar, atau aktivasi dulu.';
+      } else if (st === 'WRONG_PASSWORD') {
+        errEl.textContent = 'Password salah.';
+      } else if (st === 'REVOKED') {
+        errEl.textContent = 'Akun ini diblokir Admin. Hubungi Admin.';
+      } else if (msg && msg.indexOf('Terlalu banyak') >= 0) {
+        errEl.textContent = msg;
+      } else {
+        errEl.textContent = msg || 'Gagal login. Coba lagi.';
+      }
+    }
+
+    // Simpan identitas akun dari SERVER ke localStorage (sumber kebenaran = server).
+    function applyServerAccount(acc) {
+      if (!acc) return;
+      localStorage.setItem(KEY_USER_USERNAME, acc.username || '');
+      localStorage.setItem(KEY_USER_FULLNAME, acc.nama || '');
+      localStorage.setItem(KEY_USER_MADRASAH, acc.madrasah || '');
+      localStorage.setItem(KEY_USER_KABUPATEN, acc.kabupaten || '');
+      localStorage.setItem(KEY_USER_ROLE, acc.role || '');
     }
 
     // (Dihapus) tryLocalAdminLogin — login offline admin sudah tidak diizinkan.
     // Admin wajib login via server setiap kali sesi (8 jam) berakhir.
 
+    // (Dipakai hanya saat trial/offline) — login lokal lama, dipertahankan untuk mode trial.
     function tryLocalLogin(username, password) {
       errEl.textContent = '';
       var storedUsername = localStorage.getItem(KEY_USER_USERNAME);

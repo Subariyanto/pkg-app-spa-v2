@@ -5181,11 +5181,15 @@ function viewKelolaAktivasi(view) {
     adminLoggedIn: localStorage.getItem(KEY_ADMIN_LOGGED_IN) === 'true',
     adminUsername: localStorage.getItem('pkg_admin_username') || '',
     sessionExpired: false, // true kalau token 8 jam kedaluwarsa → tampilkan info di layar login
+    tab: 'kode', // 'kode' | 'akun'
     kodes: [],
-    stats: { total: 0, unused: 0, activated: 0, revoked: 0 },
+    akun: [],
+    stats: { total: 0, unused: 0, activated: 0, revoked: 0, accounts: 0, blocked: 0 },
     search: '',
     filterStatus: '',
+    searchAkun: '',
     loading: false,
+    loadingAkun: false,
     creating: false,
   };
 
@@ -5307,7 +5311,20 @@ function viewKelolaAktivasi(view) {
     }
   }
 
+  async function loadAccounts() {
+    state.loadingAkun = true;
+    var res = await window.SupabaseSync.adminListAccounts(state.adminUsername);
+    if (window.SupabaseSync.wasAuthExpired && window.SupabaseSync.wasAuthExpired()) {
+      state.loadingAkun = false;
+      handleAuthExpired();
+      return;
+    }
+    state.akun = (res && res.ok && Array.isArray(res.data)) ? res.data : [];
+    state.loadingAkun = false;
+  }
+
   function renderPanel() {
+    if (state.tab === 'akun') { renderAkunPanel(); return; }
     var kodes = state.kodes || [];
     var filtered = kodes.filter(function(k) {
       var matchSearch = !state.search ||
@@ -5319,9 +5336,10 @@ function viewKelolaAktivasi(view) {
     });
 
     var s = state.stats;
+    var totalAkun = (s.accounts || 0);
     var html = '\
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">\
-      <h4 class="mb-0"><i class="bi bi-key-fill"></i> Kelola Kode Aktivasi</h4>\
+      <h4 class="mb-0"><i class="bi bi-key-fill"></i> Kelola Kode Aktivasi & Akun</h4>\
       <div class="d-flex gap-2 flex-wrap">\
         <button id="btn-buat-1" class="btn btn-sm btn-primary" ' + (state.creating ? 'disabled' : '') + '><i class="bi bi-plus-circle"></i> Buat 1 Kode</button>\
         <button id="btn-buat-5" class="btn btn-sm btn-primary" ' + (state.creating ? 'disabled' : '') + '><i class="bi bi-plus-circle"></i> Buat 5 Kode</button>\
@@ -5332,10 +5350,14 @@ function viewKelolaAktivasi(view) {
         <button id="btn-admin-logout" class="btn btn-sm btn-outline-danger"><i class="bi bi-box-arrow-right"></i> Logout</button>\
       </div>\
     </div>\
+    <ul class="nav nav-tabs mb-3">\
+      <li class="nav-item"><a class="nav-link active" href="#" id="tab-kode"><i class="bi bi-key"></i> Kode Aktivasi</a></li>\
+      <li class="nav-item"><a class="nav-link" href="#" id="tab-akun"><i class="bi bi-people"></i> Kelola Akun ' + (totalAkun ? '<span class="badge bg-secondary">' + totalAkun + '</span>' : '') + '</a></li>\
+    </ul>\
     <div class="row g-3 mb-3">\
       <div class="col-md-3"><div class="card text-center"><div class="card-body py-3"><div class="display-6 text-primary">' + (s.total || 0) + '</div><div class="small text-muted">Total Kode</div></div></div></div>\
       <div class="col-md-3"><div class="card text-center"><div class="card-body py-3"><div class="display-6 text-success">' + (s.unused || 0) + '</div><div class="small text-muted">Belum Dipakai</div></div></div></div>\
-      <div class="col-md-3"><div class="card text-center"><div class="card-body py-3"><div class="display-6 text-info">' + (s.activated || 0) + '</div><div class="small text-muted">Sudah Diaktivasi</div></div></div></div>\
+      <div class="col-md-3"><div class="card text-center"><div class="card-body py-3"><div class="display-6 text-info">' + (s.accounts || s.activated || 0) + '</div><div class="small text-muted">Akun Terdaftar</div></div></div></div>\
       <div class="col-md-3"><div class="card text-center"><div class="card-body py-3"><div class="display-6 text-warning">' + (s.revoked || 0) + '</div><div class="small text-muted">Dicabut</div></div></div></div>\
     </div>\
     <div class="card mb-3">\
@@ -5393,16 +5415,341 @@ function viewKelolaAktivasi(view) {
     <div class="alert alert-info small">\
       <i class="bi bi-info-circle"></i> <strong>Cara Kerja:</strong>\
       <ol class="mb-0">\
-        <li>Buat kode aktivasi di sini (format: PKG-XXXX-XXXX). Kode disimpan di server Supabase.</li>\
-        <li>Berikan kode ke pengguna via WhatsApp/dll (1 kode = 1 orang = 1 perangkat).</li>\
-        <li>Pengguna input kode di halaman aktivasi, kode divalidasi ke Supabase dan dikunci ke Device ID.</li>\
-        <li>Admin bisa cabut (revoke) kode jika perlu.</li>\
+        <li>Buat kode aktivasi di sini (format: PKG-XXXX-XXXX). Kode disimpan di server (Cloudflare D1).</li>\
+        <li>Berikan kode ke pengguna via WhatsApp/dll. <strong>1 kode = 1 akun</strong>.</li>\
+        <li>Pengguna membuat akun (username + password) di halaman aktivasi. Nama madrasah <strong>terkunci dari kode</strong>.</li>\
+        <li>Setelah punya akun, pengguna bisa login dari perangkat mana pun.</li>\
+        <li>Admin bisa cabut (revoke) kode, blokir akun, atau reset password di tab <strong>Kelola Akun</strong>.</li>\
         <li>Data hasil penilaian PKG tetap di localStorage perangkat pengguna.</li>\
       </ol>\
     </div>';
 
     view.innerHTML = html;
     wirePanel();
+  }
+
+  function renderAkunPanel() {
+    var akun = state.akun || [];
+    var q = (state.searchAkun || '').toLowerCase();
+    var filtered = akun.filter(function(a) {
+      return !q ||
+        (a.username && a.username.toLowerCase().indexOf(q) >= 0) ||
+        (a.nama && a.nama.toLowerCase().indexOf(q) >= 0) ||
+        (a.madrasah && a.madrasah.toLowerCase().indexOf(q) >= 0);
+    });
+    var s = state.stats;
+
+    var html = '\
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">\
+      <h4 class="mb-0"><i class="bi bi-key-fill"></i> Kelola Kode Aktivasi & Akun</h4>\
+      <div class="d-flex gap-2 flex-wrap">\
+        <button id="btn-refresh-akun" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i> Refresh</button>\
+        <button id="btn-admin-logout" class="btn btn-sm btn-outline-danger"><i class="bi bi-box-arrow-right"></i> Logout</button>\
+      </div>\
+    </div>\
+    <ul class="nav nav-tabs mb-3">\
+      <li class="nav-item"><a class="nav-link" href="#" id="tab-kode"><i class="bi bi-key"></i> Kode Aktivasi</a></li>\
+      <li class="nav-item"><a class="nav-link active" href="#" id="tab-akun"><i class="bi bi-people"></i> Kelola Akun ' + ((s.accounts || 0) ? '<span class="badge bg-secondary">' + s.accounts + '</span>' : '') + '</a></li>\
+    </ul>\
+    <div class="row g-3 mb-3">\
+      <div class="col-md-4"><div class="card text-center"><div class="card-body py-3"><div class="display-6 text-info">' + (s.accounts || 0) + '</div><div class="small text-muted">Akun Terdaftar</div></div></div></div>\
+      <div class="col-md-4"><div class="card text-center"><div class="card-body py-3"><div class="display-6 text-success">' + Math.max(0, (s.accounts || 0) - (s.blocked || 0)) + '</div><div class="small text-muted">Akun Aktif</div></div></div></div>\
+      <div class="col-md-4"><div class="card text-center"><div class="card-body py-3"><div class="display-6 text-danger">' + (s.blocked || 0) + '</div><div class="small text-muted">Akun Diblokir</div></div></div></div>\
+    </div>\
+    <div class="card mb-3">\
+      <div class="card-header d-flex gap-2 align-items-center flex-wrap">\
+        <i class="bi bi-people"></i> <strong>Daftar Akun</strong> ' + (state.loadingAkun ? '<span class="spinner-border spinner-border-sm ms-2"></span>' : '') + '\
+        <div class="d-flex gap-2 ms-auto">\
+          <input id="search-akun" type="text" class="form-control form-control-sm" placeholder="Cari username/nama/madrasah..." value="' + escapeHtml(state.searchAkun) + '" style="width:220px;">\
+        </div>\
+      </div>\
+      <div class="card-body p-0">\
+        <div class="table-responsive">\
+          <table class="table table-sm table-hover mb-0">\
+            <thead class="table-light"><tr><th>Username</th><th>Nama</th><th>Madrasah</th><th>Kabupaten</th><th>Role</th><th>Status</th><th>Login Terakhir</th><th>Aksi</th></tr></thead>\
+            <tbody>';
+
+    if (filtered.length === 0) {
+      html += '<tr><td colspan="8" class="text-center text-muted py-4"><i class="bi bi-inbox"></i> ' + (state.loadingAkun ? 'Memuat...' : 'Belum ada akun. Akun terbentuk saat pengguna melakukan aktivasi dengan kode.') + '</td></tr>';
+    } else {
+      filtered.forEach(function(a) {
+        var badge = a.revoked ? '<span class="badge bg-danger">Diblokir</span>' : '<span class="badge bg-success">Aktif</span>';
+        var roleText = a.role === 'pengawas' ? 'Pengawas' : (a.role === 'kamad' ? 'Kepala Madrasah' : (a.role || '-'));
+        var lastLogin = a.last_login_at ? new Date(a.last_login_at).toLocaleString('id-ID') : '-';
+        html += '<tr>\
+          <td><code class="text-primary fw-bold">' + escapeHtml(a.username || '') + '</code></td>\
+          <td>' + escapeHtml(a.nama || '-') + '</td>\
+          <td>' + escapeHtml(a.madrasah || '-') + '</td>\
+          <td class="small">' + escapeHtml(a.kabupaten || '-') + '</td>\
+          <td class="small">' + escapeHtml(roleText) + '</td>\
+          <td>' + badge + '</td>\
+          <td class="small">' + escapeHtml(lastLogin) + '</td>\
+          <td class="text-nowrap">\
+            <button class="btn btn-sm btn-outline-warning btn-edit-akun" data-username="' + escapeHtml(a.username || '') + '" title="Edit Identitas"><i class="bi bi-pencil"></i></button> \
+            <button class="btn btn-sm btn-outline-primary btn-reset-pass" data-username="' + escapeHtml(a.username || '') + '" title="Reset Password"><i class="bi bi-key"></i></button> \
+            <button class="btn btn-sm btn-outline-info btn-devices" data-username="' + escapeHtml(a.username || '') + '" title="Perangkat"><i class="bi bi-phone"></i></button> \
+            ' + (a.revoked
+              ? '<button class="btn btn-sm btn-outline-success btn-unblock-akun" data-username="' + escapeHtml(a.username || '') + '" title="Aktifkan Kembali"><i class="bi bi-unlock"></i></button>'
+              : '<button class="btn btn-sm btn-outline-secondary btn-block-akun" data-username="' + escapeHtml(a.username || '') + '" title="Blokir Akun"><i class="bi bi-lock"></i></button>') + ' \
+            <button class="btn btn-sm btn-outline-danger btn-delete-akun" data-username="' + escapeHtml(a.username || '') + '" title="Hapus Akun"><i class="bi bi-trash"></i></button>\
+          </td>\
+        </tr>';
+      });
+    }
+
+    html += '</tbody></table></div></div></div>\
+    <div class="alert alert-info small">\
+      <i class="bi bi-info-circle"></i> <strong>1 Kode = 1 Akun.</strong> Nama madrasah & identitas lain dikunci dari kode aktivasi (hanya admin yang bisa mengubah). \
+      Akun bisa login dari perangkat mana pun; setiap perangkat hanya dicatat sebagai log.\
+    </div>';
+
+    view.innerHTML = html;
+    wireAkunPanel();
+  }
+
+  async function wireAkunPanel() {
+    var tabKode = document.getElementById('tab-kode');
+    if (tabKode) tabKode.addEventListener('click', function (e) {
+      e.preventDefault();
+      state.tab = 'kode';
+      renderPanel();
+    });
+    var tabAkun = document.getElementById('tab-akun');
+    if (tabAkun) tabAkun.addEventListener('click', function (e) {
+      e.preventDefault();
+      state.tab = 'akun';
+      renderPanel();
+    });
+
+    var btnRefreshAkun = document.getElementById('btn-refresh-akun');
+    if (btnRefreshAkun) btnRefreshAkun.addEventListener('click', async function () {
+      btnRefreshAkun.disabled = true;
+      await loadAccounts();
+      await loadStats();
+      btnRefreshAkun.disabled = false;
+      renderPanel();
+    });
+
+    var btnLogoutAkun = document.getElementById('btn-admin-logout');
+    if (btnLogoutAkun) btnLogoutAkun.addEventListener('click', function () {
+      window.PKGAuth.adminLogout();
+      state.adminLoggedIn = false;
+      state.tab = 'kode';
+      render();
+    });
+
+    var searchAkun = document.getElementById('search-akun');
+    if (searchAkun) searchAkun.addEventListener('input', function () {
+      state.searchAkun = searchAkun.value;
+      renderAkunPanel();
+      var again = document.getElementById('search-akun');
+      if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+    });
+
+    // --- EDIT IDENTITAS AKUN ---
+    document.querySelectorAll('.btn-edit-akun').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var uname = btn.dataset.username;
+        var a = (state.akun || []).find(function (x) { return x.username === uname; });
+        if (!a) { toast('Data akun tidak ditemukan.', 'danger'); return; }
+        showEditAkunModal(a);
+      });
+    });
+
+    // --- RESET PASSWORD ---
+    document.querySelectorAll('.btn-reset-pass').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        showResetPassModal(btn.dataset.username);
+      });
+    });
+
+    // --- LIHAT PERANGKAT ---
+    document.querySelectorAll('.btn-devices').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        showDevicesModal(btn.dataset.username);
+      });
+    });
+
+    // --- BLOKIR ---
+    document.querySelectorAll('.btn-block-akun').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var uname = btn.dataset.username;
+        if (!confirm('Blokir akun "' + uname + '"?\n\nAkun tidak bisa login sampai diaktifkan kembali.')) return;
+        btn.disabled = true;
+        var res = await window.SupabaseSync.adminRevokeAccount(uname);
+        if (res && res.ok) {
+          toast('Akun diblokir.', 'success');
+          await loadAccounts(); await loadStats(); renderPanel();
+        } else {
+          toast('Gagal: ' + ((res && res.message) || 'unknown'), 'danger');
+          btn.disabled = false;
+        }
+      });
+    });
+
+    // --- AKTIFKAN KEMBALI ---
+    document.querySelectorAll('.btn-unblock-akun').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var uname = btn.dataset.username;
+        btn.disabled = true;
+        var res = await window.SupabaseSync.adminUnrevokeAccount(uname);
+        if (res && res.ok) {
+          toast('Akun diaktifkan kembali.', 'success');
+          await loadAccounts(); await loadStats(); renderPanel();
+        } else {
+          toast('Gagal: ' + ((res && res.message) || 'unknown'), 'danger');
+          btn.disabled = false;
+        }
+      });
+    });
+
+    // --- HAPUS AKUN ---
+    document.querySelectorAll('.btn-delete-akun').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var uname = btn.dataset.username;
+        if (!confirm('Hapus akun "' + uname + '"?\n\nAkun akan dihapus permanen dari server. Data penilaian di perangkat pengguna TIDAK terhapus.')) return;
+        if (!confirm('Konfirmasi terakhir: yakin hapus akun ' + uname + '?')) return;
+        btn.disabled = true;
+        var res = await window.SupabaseSync.adminDeleteAccount(uname);
+        if (res && res.ok) {
+          toast('Akun dihapus.', 'success');
+          await loadAccounts(); await loadStats(); renderPanel();
+        } else {
+          toast('Gagal: ' + ((res && res.message) || 'unknown'), 'danger');
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  function showEditAkunModal(a) {
+    var old = document.getElementById('modal-edit-akun');
+    if (old) old.remove();
+    var modalHtml = '<div class="modal fade" id="modal-edit-akun" tabindex="-1" aria-hidden="true">' +
+      '<div class="modal-dialog modal-dialog-centered">' +
+      '<div class="modal-content">' +
+      '<div class="modal-header bg-warning text-white">' +
+      '<h5 class="modal-title"><i class="bi bi-pencil"></i> Edit Identitas Akun</h5>' +
+      '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>' +
+      '</div>' +
+      '<div class="modal-body">' +
+      '<div class="alert alert-warning small py-2"><i class="bi bi-lock"></i> Identitas dikunci dari kode. Hanya admin yang bisa mengubah di sini.</div>' +
+      '<div class="mb-2"><label class="form-label small fw-bold">Username</label><input type="text" class="form-control" value="' + escapeHtml(a.username || '') + '" readonly></div>' +
+      '<div class="mb-2"><label class="form-label fw-bold">Nama Lengkap</label><input type="text" class="form-control" id="ea-nama" value="' + escapeHtml(a.nama || '') + '"></div>' +
+      '<div class="mb-2"><label class="form-label fw-bold">Nama Madrasah</label><input type="text" class="form-control" id="ea-madrasah" value="' + escapeHtml(a.madrasah || '') + '"></div>' +
+      '<div class="mb-2"><label class="form-label fw-bold">Kabupaten/Kota</label><input type="text" class="form-control" id="ea-kabupaten" value="' + escapeHtml(a.kabupaten || '') + '"></div>' +
+      '<div class="mb-2"><label class="form-label fw-bold">Role</label><select class="form-select" id="ea-role"><option value="">-- Pilih --</option><option value="pengawas"' + (a.role === 'pengawas' ? ' selected' : '') + '>Pengawas - Pembina</option><option value="kamad"' + (a.role === 'kamad' ? ' selected' : '') + '>Kepala Madrasah (Kamad)</option></select></div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+      '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>' +
+      '<button type="button" class="btn btn-warning" id="btn-submit-edit-akun"><i class="bi bi-check-circle"></i> Simpan</button>' +
+      '</div></div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    var modalEl = document.getElementById('modal-edit-akun');
+    var modal = new bootstrap.Modal(modalEl);
+    modal.show();
+    modalEl.addEventListener('hidden.bs.modal', function () { modalEl.remove(); });
+    document.getElementById('btn-submit-edit-akun').addEventListener('click', async function () {
+      var b = this;
+      b.disabled = true;
+      b.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+      var res = await window.SupabaseSync.adminEditAccount(
+        a.username,
+        document.getElementById('ea-nama').value.trim(),
+        document.getElementById('ea-madrasah').value.trim(),
+        document.getElementById('ea-kabupaten').value.trim(),
+        document.getElementById('ea-role').value
+      );
+      if (res && res.ok) {
+        toast('Identitas akun diperbarui.', 'success');
+        modal.hide();
+        await loadAccounts(); renderPanel();
+      } else {
+        toast('Gagal: ' + ((res && res.message) || 'unknown'), 'danger');
+        b.disabled = false;
+        b.innerHTML = '<i class="bi bi-check-circle"></i> Simpan';
+      }
+    });
+  }
+
+  function showResetPassModal(username) {
+    var old = document.getElementById('modal-reset-pass');
+    if (old) old.remove();
+    var modalHtml = '<div class="modal fade" id="modal-reset-pass" tabindex="-1" aria-hidden="true">' +
+      '<div class="modal-dialog modal-dialog-centered">' +
+      '<div class="modal-content">' +
+      '<div class="modal-header bg-primary text-white">' +
+      '<h5 class="modal-title"><i class="bi bi-key"></i> Reset Password</h5>' +
+      '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>' +
+      '</div>' +
+      '<div class="modal-body">' +
+      '<p class="small text-muted">Akun: <code class="text-primary fw-bold">' + escapeHtml(username) + '</code></p>' +
+      '<div class="mb-2"><label class="form-label fw-bold">Password Baru</label><input type="text" class="form-control" id="rp-pass" placeholder="Minimal 6 karakter"></div>' +
+      '<div class="form-text">saran: gunakan kombinasi huruf & angka, lalu bagikan ke pemilik akun.</div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+      '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>' +
+      '<button type="button" class="btn btn-primary" id="btn-submit-reset-pass"><i class="bi bi-check-circle"></i> Reset Password</button>' +
+      '</div></div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    var modalEl = document.getElementById('modal-reset-pass');
+    var modal = new bootstrap.Modal(modalEl);
+    modal.show();
+    modalEl.addEventListener('hidden.bs.modal', function () { modalEl.remove(); });
+    document.getElementById('btn-submit-reset-pass').addEventListener('click', async function () {
+      var b = this;
+      var pass = document.getElementById('rp-pass').value;
+      if (!pass || pass.length < 6) { toast('Password minimal 6 karakter.', 'warning'); return; }
+      b.disabled = true;
+      b.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+      var res = await window.SupabaseSync.adminResetPassword(username, pass);
+      if (res && res.ok) {
+        toast('Password akun ' + username + ' direset.', 'success');
+        modal.hide();
+      } else {
+        toast('Gagal: ' + ((res && res.message) || 'unknown'), 'danger');
+        b.disabled = false;
+        b.innerHTML = '<i class="bi bi-check-circle"></i> Reset Password';
+      }
+    });
+  }
+
+  async function showDevicesModal(username) {
+    var old = document.getElementById('modal-devices');
+    if (old) old.remove();
+    var modalHtml = '<div class="modal fade" id="modal-devices" tabindex="-1" aria-hidden="true">' +
+      '<div class="modal-dialog modal-dialog-centered modal-lg">' +
+      '<div class="modal-content">' +
+      '<div class="modal-header bg-info text-white">' +
+      '<h5 class="modal-title"><i class="bi bi-phone"></i> Perangkat Akun <code>' + escapeHtml(username) + '</code></h5>' +
+      '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>' +
+      '</div>' +
+      '<div class="modal-body" id="devices-body"><div class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Memuat...</div></div>' +
+      '<div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button></div>' +
+      '</div></div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    var modalEl = document.getElementById('modal-devices');
+    var modal = new bootstrap.Modal(modalEl);
+    modal.show();
+    modalEl.addEventListener('hidden.bs.modal', function () { modalEl.remove(); });
+
+    var res = await window.SupabaseSync.adminAccountDevices(username);
+    var body = document.getElementById('devices-body');
+    if (!body) return;
+    var rows = (res && res.ok && Array.isArray(res.data)) ? res.data : [];
+    if (rows.length === 0) {
+      body.innerHTML = '<div class="text-center text-muted py-3"><i class="bi bi-inbox"></i> Belum ada perangkat tercatat.</div>';
+      return;
+    }
+    var html = '<div class="table-responsive"><table class="table table-sm"><thead class="table-light"><tr><th>Device ID</th><th>User Agent</th><th>Pertama</th><th>Terakhir</th></tr></thead><tbody>';
+    rows.forEach(function (d) {
+      html += '<tr><td><code class="small">' + escapeHtml(d.device_id || '') + '</code></td>' +
+        '<td class="small">' + escapeHtml(d.user_agent || '-') + '</td>' +
+        '<td class="small">' + escapeHtml(d.first_seen ? new Date(d.first_seen).toLocaleString('id-ID') : '-') + '</td>' +
+        '<td class="small">' + escapeHtml(d.last_seen ? new Date(d.last_seen).toLocaleString('id-ID') : '-') + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    body.innerHTML = html;
   }
 
   function showCreateModal(jumlah) {
