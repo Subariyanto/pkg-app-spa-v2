@@ -779,6 +779,103 @@
       tryServerUserLogin(username, password);
     }
 
+    // Tambal jalur login pengguna LAMA (sistem 1 kode = 1 perangkat).
+    // Akun mereka hanya tersimpan di perangkat ini, belum ada di server.
+    // Supaya tidak terkunci: kalau server bilang akun tidak ada (NO_ACCOUNT) dan
+    // data lokal cocok, izinkan masuk + arahkan untuk klaim kode jadi akun server
+    // agar bisa login dari perangkat lain.
+    function tryLegacyLocalFallback(username, password, st, msg) {
+      var storedUsername = localStorage.getItem(KEY_USER_USERNAME);
+      var storedHash = localStorage.getItem(KEY_USER_PASSWORD_HASH);
+      if (!storedUsername || !storedHash) {
+        errEl.textContent = msg || 'Akun tidak ditemukan di server. Pastikan username benar, atau aktivasi dulu.';
+        return false;
+      }
+      if (username !== storedUsername) {
+        errEl.innerHTML = 'Username tidak ditemukan. Username yang terdaftar di perangkat ini: <b>' + escapeHtml(storedUsername) + '</b>.';
+        return true;
+      }
+      if (fnv1aHash(password) !== storedHash) {
+        errEl.textContent = 'Password salah.';
+        return true;
+      }
+
+      localStorage.setItem(KEY_LOGGED_IN, 'true');
+      var storedCode = localStorage.getItem(KEY_ACTIVATION_CODE);
+      if (st === 'NO_ACCOUNT' && storedCode) {
+        try {
+          sessionStorage.setItem('pkg_legacy_migrate_prompt', '1');
+        } catch (e) {}
+      }
+      var ov = document.getElementById('pkg-auth-overlay');
+      if (ov) ov.remove();
+      if (typeof window.render === 'function') window.render();
+      return true;
+    }
+
+    // Klaim akun lama menjadi akun server. Dipakai dari halaman Pengaturan Akun.
+    // Mengembalikan hasil lewat callback: cb(ok, message).
+    async function claimLegacyAccount(cb) {
+      function done(ok, msg) { try { cb(ok, msg); } catch (e) { console.error(e); } }
+
+      if (!window.SupabaseSync || !window.SupabaseSync.claimAccount || !window.SupabaseSync.hasConfig()) {
+        done(false, 'Server tidak terkonfigurasi atau aplikasi perlu dimuat ulang (Ctrl+Shift+R).');
+        return;
+      }
+      var code = (localStorage.getItem(KEY_ACTIVATION_CODE) || '').trim().toUpperCase();
+      var username = localStorage.getItem(KEY_USER_USERNAME) || '';
+      var fullname = localStorage.getItem(KEY_USER_FULLNAME) || '';
+      var madrasah = localStorage.getItem(KEY_USER_MADRASAH) || '';
+      var kabupaten = localStorage.getItem(KEY_USER_KABUPATEN) || '';
+      var role = localStorage.getItem(KEY_USER_ROLE) || '';
+
+      if (!code || !username) {
+        done(false, 'Kode aktivasi/username tidak ditemukan di perangkat ini. Hubungi Admin untuk dibuatkan akun baru.');
+        return;
+      }
+      var pwd = prompt('Buat password untuk akun Anda (minimal 6 karakter).\nIni password yang dipakai untuk login di perangkat mana pun:');
+      if (pwd === null) { done(false, 'Dibatalkan.'); return; }
+      if (pwd.length < 6) { done(false, 'Password minimal 6 karakter.'); return; }
+      var again = prompt('Ulangi password:');
+      if (again === null || again !== pwd) { done(false, 'Konfirmasi password tidak cocok.'); return; }
+
+      var res = null;
+      try {
+        res = await window.SupabaseSync.claimAccount(
+          code, username, pwd, getDeviceId(), navigator.userAgent || '',
+          fullname, madrasah, kabupaten,
+          (role && role !== 'trial') ? role : null
+        );
+      } catch (e) { res = null; }
+
+      if (res && res.ok) {
+        var acc = res.account || {};
+        localStorage.setItem(KEY_USER_MADRASAH, acc.madrasah || madrasah);
+        localStorage.setItem(KEY_USER_KABUPATEN, acc.kabupaten || kabupaten);
+        if (acc.role) localStorage.setItem(KEY_USER_ROLE, acc.role);
+        if (acc.nama) localStorage.setItem(KEY_USER_FULLNAME, acc.nama);
+        localStorage.setItem(KEY_ACCOUNT_VERIFIED, String(Date.now()));
+        done(true, 'Berhasil! Akun Anda sudah di server. Sekarang bisa login dari perangkat mana pun.');
+        return;
+      }
+
+      var st = (res && res.status) || '';
+      var msg = (res && res.message) || '';
+      if (st === 'ALREADY_USED') {
+        done(true, 'Akun Anda sudah ada di server. Silakan login seperti biasa (username: ' + username + ').');
+      } else if (st === 'DEVICE_MISMATCH') {
+        done(false, 'Kode ini terdaftar di perangkat lain. Pengubahan hanya bisa dilakukan dari perangkat yang dulu dipakai aktivasi, atau minta Admin membuatkan akun baru.');
+      } else if (st === 'USERNAME_TAKEN') {
+        done(false, msg || 'Username sudah dipakai. Silakan minta Admin menggantinya.');
+      } else if (st === 'REVOKED') {
+        done(false, 'Kode aktivasi sudah dicabut Admin.');
+      } else if (st === 'INVALID_CODE') {
+        done(false, 'Kode aktivasi lama tidak ditemukan di server.');
+      } else {
+        done(false, msg || 'Gagal. Periksa koneksi internet lalu coba lagi.');
+      }
+    }
+
     // Login pengguna diverifikasi ke SERVER (akun bisa dipakai di perangkat mana pun).
     // Identitas (nama/madrasah/kabupaten/role) berasal dari server dan dikunci.
     async function tryServerUserLogin(username, password) {
@@ -821,6 +918,10 @@
 
       var st = (res && res.status) || '';
       var msg = (res && res.message) || '';
+      // Pengguna LAMA: akunnya belum ada di server → coba data lokal dulu.
+      if (st === 'NO_ACCOUNT') {
+        if (tryLegacyLocalFallback(username, password, st, msg)) return;
+      }
       if (st === 'NO_ACCOUNT') {
         errEl.textContent = 'Akun tidak ditemukan di server. Pastikan username benar, atau aktivasi dulu.';
       } else if (st === 'WRONG_PASSWORD') {
@@ -1127,11 +1228,42 @@
           </div>\
         </div>\
       </div>\
+      <div class="col-12">\
+        <div class="card" id="card-migrasi-akun">\
+          <div class="card-header"><i class="bi bi-arrow-repeat"></i> Ubah Aktivasi Lama menjadi Akun Server</div>\
+          <div class="card-body">\
+            <p class="small mb-2">Kalau Anda dulu aktivasi saat sistem masih <b>1 kode = 1 perangkat</b>, akun Anda baru tersimpan di perangkat ini. Ubah sekali di sini (di perangkat ini) supaya bisa login dari HP/laptop lain.</p>\
+            <div id="migrate-status" class="small mb-2 text-muted"></div>\
+            <button id="btn-migrate-account" class="btn btn-sm btn-warning"><i class="bi bi-arrow-repeat"></i> Ubah jadi Akun Server</button>\
+          </div>\
+        </div>\
+      </div>\
     </div>\
     <div class="alert alert-warning mt-3 small">\
       <i class="bi bi-exclamation-triangle"></i> <strong>Penting:</strong> Tidak ada cara recovery PIN.\
       Jika lupa PIN, harus reset data. Selalu lakukan backup berkala.\
     </div>';
+
+    // Tombol migrasi akun lama → akun server (hanya untuk perangkat yang dulu aktivasi)
+    var btnMigrate = document.getElementById('btn-migrate-account');
+    if (btnMigrate) {
+      var migStatus = document.getElementById('migrate-status');
+      btnMigrate.addEventListener('click', function () {
+        migStatus.style.color = '#1e40af';
+        migStatus.textContent = 'Mengubah...';
+        btnMigrate.disabled = true;
+        claimLegacyAccount(function (ok, msg) {
+          btnMigrate.disabled = false;
+          if (ok) {
+            migStatus.style.color = '#1f5d3a';
+            migStatus.textContent = msg || 'Berhasil. Akun Anda sekarang bisa dipakai di perangkat mana pun.';
+          } else {
+            migStatus.style.color = '#c0392b';
+            migStatus.textContent = msg || 'Gagal mengubah akun.';
+          }
+        });
+      });
+    }
 
     if (isSet) {
       document.getElementById('btn-change-pin').addEventListener('click', async function () {

@@ -298,9 +298,21 @@ function viewBeranda(view) {
     if (expired) return '<div class="alert alert-danger beranda-trial-banner"><i class="bi bi-exclamation-triangle"></i> <strong>Masa Trial Berakhir.</strong> Hubungi Admin untuk kode aktivasi penuh.</div>';
     return `<div class="alert alert-warning beranda-trial-banner d-flex align-items-center justify-content-between flex-wrap gap-2"><div><i class="bi bi-clock-history"></i> <strong>Mode Trial</strong> — sisa <strong>${daysLeft} hari</strong>. Dokumen cetak/PDF/DOCX memiliki watermark "TRIAL".</div><a href="#/pengaturan-pin" class="btn btn-sm btn-success">Input Kode Aktivasi Penuh</a></div>`;
   })() : '';
+  // Pengguna LAMA (sistem 1 kode = 1 perangkat): akunnya belum ada di server.
+  // Tampilkan ajakan migrasi sekali supaya bisa login dari perangkat lain.
+  const legacyBanner = (() => {
+    try {
+      if (sessionStorage.getItem('pkg_legacy_migrate_prompt') !== '1') return '';
+      sessionStorage.removeItem('pkg_legacy_migrate_prompt');
+    } catch (e) { return ''; }
+    return '<div class="alert alert-warning beranda-trial-banner"><i class="bi bi-arrow-repeat"></i> <strong>Akun Anda masih tersimpan di perangkat ini saja.</strong> ' +
+      'Supaya bisa login dari HP/laptop lain, buka halaman <b>Aktivasi</b> lalu masukkan <b>kode aktivasi lama</b> + username + password Anda sekali saja (di perangkat ini). ' +
+      '<a href="#/pengaturan-pin" class="btn btn-sm btn-warning ms-2">Lakukan sekarang</a></div>';
+  })();
   const greeting = 'Selamat Datang';
   view.innerHTML = `
   ${trialBanner}
+  ${legacyBanner}
 
   <!-- Hero -->
   <div class="beranda-hero mb-4">
