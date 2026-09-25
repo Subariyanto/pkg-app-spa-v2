@@ -246,7 +246,7 @@
       <style>\
         #pkg-auth-overlay {\
           position: fixed; inset: 0; z-index: 3000;\
-          background: linear-gradient(135deg, #1e40af 0%, #1f5d3a 100%);\
+          background: linear-gradient(135deg, #1e40af 0%, #14304f 100%);\
           display: flex; align-items: flex-start; justify-content: center; overflow-y: auto;\
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;\
           padding: 1rem;\
@@ -257,21 +257,31 @@
           box-shadow: 0 12px 40px rgba(0,0,0,.25);\
         }\
         .auth-logo { text-align: center; margin-bottom: 1.5rem; }\
-        .auth-logo i { font-size: 3rem; color: #1f5d3a; }\
-        .auth-logo h2 { margin: 0.5rem 0 0; color: #1f5d3a; font-size: 1.5rem; font-weight: bold; }\
+        .auth-logo i { font-size: 3rem; color: #14304f; }\
+        .auth-logo h2 { margin: 0.5rem 0 0; color: #14304f; font-size: 1.5rem; font-weight: bold; }\
         .auth-logo p { margin: 0; color: #666; font-size: 0.85rem; }\
         .form-group { margin-bottom: 1rem; }\
         .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; color: #333; }\
         .form-group input, .form-group select {\
           width: 100%; padding: 0.6rem; border: 2px solid #ddd; border-radius: 8px; outline: none; font-size: 0.95rem;\
         }\
-        .form-group input:focus, .form-group select:focus { border-color: #1f5d3a; }\
+        .form-group input:focus, .form-group select:focus { border-color: #14304f; }\
+        .pw-wrap { position: relative; }\
+        .pw-wrap input { padding-right: 2.6rem; }\
+        .pw-toggle {\
+          position: absolute; top: 0; right: 0; height: 100%; width: 2.6rem;\
+          display: flex; align-items: center; justify-content: center;\
+          background: transparent; border: 0; padding: 0; cursor: pointer;\
+          color: #666; font-size: 1.1rem; line-height: 1;\
+        }\
+        .pw-toggle:hover { color: #14304f; }\
+        .pw-toggle:focus { outline: none; color: #14304f; }\
         .btn-auth-submit {\
-          width: 100%; background: #1f5d3a; color: white; border: 0;\
+          width: 100%; background: #14304f; color: white; border: 0;\
           padding: 0.75rem; border-radius: 8px; font-weight: 600; cursor: pointer;\
           font-size: 1rem; margin-top: 1rem; transition: background 0.2s;\
         }\
-        .btn-auth-submit:hover { background: #143e26; }\
+        .btn-auth-submit:hover { background: #0e2338; }\
         .btn-auth-submit:disabled { background: #999; cursor: not-allowed; }\
         .auth-err { color: #c0392b; font-size: 0.85rem; min-height: 1.2rem; margin-bottom: 0.5rem; text-align: center; }\
         .auth-info { color: #1e40af; font-size: 0.85rem; min-height: 1.2rem; margin-bottom: 0.5rem; text-align: center; }\
@@ -323,12 +333,18 @@
         \
         <div class="form-group">\
           <label>Password</label>\
-          <input id="reg-password" type="password" placeholder="Minimal 6 karakter" autocomplete="off">\
+          <div class="pw-wrap">\
+            <input id="reg-password" type="password" placeholder="Minimal 6 karakter" autocomplete="off">\
+            <button type="button" class="pw-toggle" data-target="reg-password" aria-label="Lihat password" title="Lihat password"><i class="bi bi-eye"></i></button>\
+          </div>\
         </div>\
         \
         <div class="form-group">\
           <label>Konfirmasi Password</label>\
-          <input id="reg-confirm" type="password" placeholder="Ulangi password" autocomplete="off">\
+          <div class="pw-wrap">\
+            <input id="reg-confirm" type="password" placeholder="Ulangi password" autocomplete="off">\
+            <button type="button" class="pw-toggle" data-target="reg-confirm" aria-label="Lihat password" title="Lihat password"><i class="bi bi-eye"></i></button>\
+          </div>\
         </div>\
         \
         <button class="btn-auth-submit" id="btn-reg-submit">Aktifkan & Daftar Akun</button>\
@@ -342,7 +358,7 @@
         </div>\
         \
         <div style="text-align:center; margin-top:1rem; font-size:.85rem;">\
-          <a id="link-to-login" style="color:#1f5d3a; cursor:pointer; text-decoration:none; font-weight:600;">Sudah Memiliki Akun? Login di sini</a>\
+          <a id="link-to-login" style="color:#14304f; cursor:pointer; text-decoration:none; font-weight:600;">Sudah Memiliki Akun? Login di sini</a>\
         </div>\
         <div style="text-align:center; margin-top:1.25rem; padding-top:1rem; border-top:1px dashed #ddd;">\
           <div id="trial-expired-msg" style="display:none; color:#c0392b; font-size:.85rem; margin-bottom:.75rem; font-weight:600;">\
@@ -354,6 +370,21 @@
           <div style="font-size:.75rem; color:#888; margin-top:.5rem;">Akses penuh 3 hari. Dokumen cetak berwatermark "TRIAL".</div>\
         </div>\
       </div>';
+
+    // Toggle lihat/sembunyikan password (ikon mata)
+    overlay.querySelectorAll('.pw-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var inp = document.getElementById(btn.getAttribute('data-target'));
+        if (!inp) return;
+        var show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        var ic = btn.querySelector('i');
+        if (ic) ic.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+        var lbl = show ? 'Sembunyikan password' : 'Lihat password';
+        btn.setAttribute('aria-label', lbl);
+        btn.setAttribute('title', lbl);
+      });
+    });
 
     var roleSel = document.getElementById('reg-role');
     if (roleSel) {
@@ -458,7 +489,7 @@
           }
         }
         if (codeInfoEl) {
-          codeInfoEl.style.color = '#1f5d3a';
+          codeInfoEl.style.color = '#14304f';
           codeInfoEl.innerHTML = '<i class="bi bi-check-circle"></i> Kode valid' +
             (res.nama ? ' ' + escapeHtml(res.nama) : '') +
             '. Identitas (nama/madrasah/kabupaten) silakan isi sendiri di bawah.';
@@ -648,7 +679,7 @@
       <style>\
         #pkg-auth-overlay {\
           position: fixed; inset: 0; z-index: 3000;\
-          background: linear-gradient(135deg, #1f5d3a 0%, #1e40af 100%);\
+          background: linear-gradient(135deg, #14304f 0%, #1e40af 100%);\
           display: flex; align-items: flex-start; justify-content: center; overflow-y: auto;\
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;\
           padding: 1rem;\
@@ -667,13 +698,13 @@
         .form-group input {\
           width: 100%; padding: 0.65rem; border: 2px solid #ddd; border-radius: 8px; outline: none; font-size: 1rem;\
         }\
-        .form-group input:focus { border-color: #1f5d3a; }\
+        .form-group input:focus { border-color: #14304f; }\
         .btn-auth-submit {\
-          width: 100%; background: #1f5d3a; color: white; border: 0;\
+          width: 100%; background: #14304f; color: white; border: 0;\
           padding: 0.75rem; border-radius: 8px; font-weight: 600; cursor: pointer;\
           font-size: 1rem; transition: background 0.2s;\
         }\
-        .btn-auth-submit:hover { background: #143e26; }\
+        .btn-auth-submit:hover { background: #0e2338; }\
         .btn-auth-submit:disabled { background: #999; cursor: not-allowed; }\
         .auth-err { color: #c0392b; font-size: 0.85rem; min-height: 1.2rem; margin-bottom: 0.5rem; text-align: center; }\
       </style>\
@@ -695,7 +726,7 @@
         </div>\
         <button class="btn-auth-submit" id="btn-login">Masuk</button>\
         <div style="text-align:center; margin-top:1rem; font-size:.85rem;">\
-          <a id="link-to-activation" style="color:#1f5d3a; cursor:pointer; text-decoration:none; font-weight:600;">Belum Punya Akun? Aktivasi di sini</a>\
+          <a id="link-to-activation" style="color:#14304f; cursor:pointer; text-decoration:none; font-weight:600;">Belum Punya Akun? Aktivasi di sini</a>\
         </div>\
         <div style="text-align:center; margin-top:1.25rem; padding-top:1rem; border-top:1px dashed #ddd;">\
           <button id="btn-login-trial" type="button" style="width:100%; background:#6c757d; color:white; border:0; padding:.65rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:.95rem;">\
@@ -1008,7 +1039,7 @@
       <style>\
         #pkg-lock-overlay {\
           position: fixed; inset: 0; z-index: 3000;\
-          background: linear-gradient(135deg, #1f5d3a 0%, #06a04c 100%);\
+          background: linear-gradient(135deg, #14304f 0%, #0f5257 100%);\
           display: flex; align-items: flex-start; justify-content: center; overflow-y: auto;\
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;\
         }\
@@ -1019,28 +1050,28 @@
           text-align: center;\
         }\
         #pkg-lock-card .lock-icon {\
-          font-size: 3rem; color: #1f5d3a;\
+          font-size: 3rem; color: #14304f;\
           width: 80px; height: 80px; line-height: 80px;\
           margin: 0 auto 1rem;\
-          background: #d6efd9; border-radius: 50%;\
+          background: #dbe7f3; border-radius: 50%;\
         }\
-        #pkg-lock-card h2 { margin: 0 0 .25rem; color: #1f5d3a; font-size: 1.4rem; }\
+        #pkg-lock-card h2 { margin: 0 0 .25rem; color: #14304f; font-size: 1.4rem; }\
         #pkg-lock-card .subtitle { color: #666; font-size: .9rem; margin-bottom: 1.5rem; }\
         #pkg-lock-card input {\
           width: 100%; font-size: 1.6rem; text-align: center; letter-spacing: .8rem;\
-          padding: .6rem; border: 2px solid #d6efd9; border-radius: 8px;\
+          padding: .6rem; border: 2px solid #dbe7f3; border-radius: 8px;\
           margin-bottom: 1rem; outline: none;\
         }\
-        #pkg-lock-card input:focus { border-color: #1f5d3a; }\
+        #pkg-lock-card input:focus { border-color: #14304f; }\
         #pkg-lock-card button.btn-primary {\
-          width: 100%; background: #1f5d3a; color: white; border: 0;\
+          width: 100%; background: #14304f; color: white; border: 0;\
           padding: .65rem; border-radius: 8px; font-weight: 600; cursor: pointer;\
           font-size: 1rem;\
         }\
-        #pkg-lock-card button.btn-primary:hover { background: #143e26; }\
+        #pkg-lock-card button.btn-primary:hover { background: #0e2338; }\
         #pkg-lock-card .err { color: #c0392b; font-size: .85rem; min-height: 1.2rem; margin-bottom: .5rem; }\
         #pkg-lock-card .footer-link { margin-top: 1rem; font-size: .85rem; }\
-        #pkg-lock-card .footer-link a { color: #1f5d3a; text-decoration: none; cursor: pointer; }\
+        #pkg-lock-card .footer-link a { color: #14304f; text-decoration: none; cursor: pointer; }\
         #pkg-lock-card .footer-link a:hover { text-decoration: underline; }\
       </style>\
       <div id="pkg-lock-card">\
@@ -1122,20 +1153,20 @@
             width: 92%; max-width: 420px;\
             box-shadow: 0 12px 40px rgba(0,0,0,.25);\
           }\
-          #pkg-pin-setup-card h3 { margin: 0 0 .5rem; color: #1f5d3a; }\
+          #pkg-pin-setup-card h3 { margin: 0 0 .5rem; color: #14304f; }\
           #pkg-pin-setup-card .desc { color: #555; font-size: .9rem; margin-bottom: 1rem; }\
           #pkg-pin-setup-card label { display: block; font-size: .85rem; font-weight: 600; margin-bottom: .25rem; color: #333; }\
           #pkg-pin-setup-card input {\
             width: 100%; font-size: 1.4rem; text-align: center; letter-spacing: .6rem;\
-            padding: .5rem; border: 2px solid #d6efd9; border-radius: 8px;\
+            padding: .5rem; border: 2px solid #dbe7f3; border-radius: 8px;\
             margin-bottom: .9rem; outline: none;\
           }\
-          #pkg-pin-setup-card input:focus { border-color: #1f5d3a; }\
+          #pkg-pin-setup-card input:focus { border-color: #14304f; }\
           #pkg-pin-setup-card .row-btn { display: flex; gap: .5rem; margin-top: .75rem; }\
           #pkg-pin-setup-card button {\
             flex: 1; padding: .55rem; border-radius: 8px; font-weight: 600; cursor: pointer; border: 0;\
           }\
-          #pkg-pin-setup-card .btn-primary { background: #1f5d3a; color: white; }\
+          #pkg-pin-setup-card .btn-primary { background: #14304f; color: white; }\
           #pkg-pin-setup-card .btn-secondary { background: #e9ecef; color: #333; }\
           #pkg-pin-setup-card .err { color: #c0392b; font-size: .85rem; min-height: 1.1rem; }\
         </style>\
@@ -1255,7 +1286,7 @@
         claimLegacyAccount(function (ok, msg) {
           btnMigrate.disabled = false;
           if (ok) {
-            migStatus.style.color = '#1f5d3a';
+            migStatus.style.color = '#14304f';
             migStatus.textContent = msg || 'Berhasil. Akun Anda sekarang bisa dipakai di perangkat mana pun.';
           } else {
             migStatus.style.color = '#c0392b';

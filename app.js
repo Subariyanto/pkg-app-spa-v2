@@ -2895,7 +2895,7 @@ function printRekapTab(title, html) {
     .meta{text-align:center;margin-bottom:14px;font-size:10pt;color:#444;}
     table{width:100%;border-collapse:collapse;margin-bottom:6px;}
     th,td{border:1px solid #333;padding:4px 6px;vertical-align:top;text-align:left;font-size:9pt;}
-    th{background:#e8f5e9;}
+    th{background:#e6ebf4;}
     .badge{display:inline-block;padding:1px 5px;border:1px solid #888;border-radius:3px;font-size:8pt;}
     .small,.text-muted{color:#555;font-size:8pt;}
     .alert{display:none;}

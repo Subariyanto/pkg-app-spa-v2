@@ -372,7 +372,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
       <tr><td>Sedang (&gt;50 - 60)</td><td style="text-align:right;">${s.sebutanCount['Sedang'] || 0}</td><td style="text-align:right;">${persen('Sedang')}%</td></tr>
       <tr><td>Kurang (≤50)</td><td style="text-align:right;">${s.sebutanCount['Kurang'] || 0}</td><td style="text-align:right;">${persen('Kurang')}%</td></tr>
       <tr style="background:#f5f5f5;"><td>Belum dinilai</td><td style="text-align:right;">${s.sebutanCount['Belum dinilai'] || 0}</td><td style="text-align:right;">${persen('Belum dinilai')}%</td></tr>
-      <tr style="background:#e8f5e9; font-weight:600;"><td>TOTAL</td><td style="text-align:right;">${s.total}</td><td style="text-align:right;">100.0%</td></tr>
+      <tr style="background:#e6ebf4; font-weight:600;"><td>TOTAL</td><td style="text-align:right;">${s.total}</td><td style="text-align:right;">100.0%</td></tr>
     </tbody></table>`;
   }
 
@@ -806,7 +806,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
       @media print { .doc { max-width: none; padding: 0; } .no-print { display: none; } }
     </style></head><body>
     <div class="no-print" style="text-align:right; padding:8px; background:#fff; border-bottom:1px solid #ddd;">
-      <button onclick="window.print()" style="padding:6px 14px; background:#047a3a; color:#fff; border:0; border-radius:4px; cursor:pointer;">🖨️ Cetak / Simpan PDF</button>
+      <button onclick="window.print()" style="padding:6px 14px; background:#14304f; color:#fff; border:0; border-radius:4px; cursor:pointer;">🖨️ Cetak / Simpan PDF</button>
       <button onclick="window.close()" style="padding:6px 14px; background:#888; color:#fff; border:0; border-radius:4px; cursor:pointer; margin-left:6px;">Tutup</button>
     </div>
     ${trialWM}

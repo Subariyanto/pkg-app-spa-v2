@@ -1,14 +1,14 @@
-/* PKG App SPA - Tema Hijau Tua Dominan + Aksen Emas, Tulisan Putih */
+/* PKG App SPA - Tema Navy Tua Dominan + Aksen Emas, Tulisan Putih */
 :root {
-  --pkg-primary: #1f5d3a;          /* hijau tua sebagai dominan */
-  --pkg-primary-dark: #143d26;     /* hijau lebih gelap untuk hover */
-  --pkg-primary-light: #d6efd9;    /* hijau pucat */
-  --pkg-soft: #f4faf5;             /* background lembut hijau pucat */
+  --pkg-primary: #14304f;          /* navy tua sebagai dominan */
+  --pkg-primary-dark: #0e2338;     /* navy lebih gelap untuk hover */
+  --pkg-primary-light: #dbe7f3;    /* navy pucat */
+  --pkg-soft: #f5f8fc;             /* background lembut navy pucat */
   --pkg-accent: #c9a227;           /* emas sebagai aksen sekunder */
   --pkg-accent-dark: #a8861a;
   --pkg-accent-light: #fdf3c5;
   --pkg-danger: #c0392b;
-  --pkg-text-on-primary: #ffffff;  /* teks putih di atas tombol/banner hijau tua */
+  --pkg-text-on-primary: #ffffff;  /* teks putih di atas tombol/banner navy tua */
 }
 
 body {
@@ -18,7 +18,7 @@ body {
   color: #2a2a2a;
 }
 
-/* Tombol primary: hijau tua dengan teks putih */
+/* Tombol primary: navy tua dengan teks putih */
 .btn-primary {
   background-color: var(--pkg-primary);
   border-color: var(--pkg-primary);
@@ -39,7 +39,7 @@ body {
   color: #fff;
 }
 
-/* Tombol success: tetap hijau tua (sama dengan primary) supaya konsisten */
+/* Tombol success: tetap navy tua (sama dengan primary) supaya konsisten */
 .btn-success {
   background-color: var(--pkg-primary);
   border-color: var(--pkg-primary);
@@ -119,7 +119,7 @@ a:hover { color: var(--pkg-primary-dark); }
 }
 .card-header {
   background: #fff;
-  border-bottom: 1px solid #e8efe9;
+  border-bottom: 1px solid #e5ebf3;
   font-weight: 600;
 }
 /* Card-header dengan bg-primary/success: teks putih */
@@ -186,11 +186,11 @@ a:hover { color: var(--pkg-primary-dark); }
 .role-card {
   transition: transform .15s, box-shadow .15s;
   cursor: pointer;
-  border: 1px solid #e8efe9;
+  border: 1px solid #e5ebf3;
 }
 .role-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(31, 93, 58, .25);
+  box-shadow: 0 4px 12px rgba(20, 48, 79, .25);
   border-color: var(--pkg-primary);
 }
 .role-icon { font-size: 2rem; }
@@ -301,7 +301,7 @@ a:hover { color: var(--pkg-primary-dark); }
 
 /* Hero */
 .beranda-hero {
-  background: linear-gradient(135deg, #0f3520 0%, #1a5232 40%, #1f5d3a 70%, #2a7a4f 100%);
+  background: linear-gradient(135deg, #0b1c2e 0%, #112a44 40%, #14304f 70%, #1d4670 100%);
   border-radius: 1.25rem;
   padding: 2.5rem 2.5rem;
   display: flex;
@@ -309,7 +309,7 @@ a:hover { color: var(--pkg-primary-dark); }
   justify-content: space-between;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 12px 40px rgba(15, 53, 32, 0.35);
+  box-shadow: 0 12px 40px rgba(11, 28, 46, 0.35);
 }
 .beranda-hero-overlay {
   position: absolute;
@@ -429,12 +429,12 @@ a:hover { color: var(--pkg-primary-dark); }
   letter-spacing: .06em;
   font-weight: 600;
 }
-.beranda-stat-1::before { background: linear-gradient(90deg, var(--pkg-primary), #2a7a4f); }
-.beranda-stat-1 .beranda-stat-icon { background: rgba(31, 93, 58, 0.1); color: var(--pkg-primary); }
+.beranda-stat-1::before { background: linear-gradient(90deg, var(--pkg-primary), #1d4670); }
+.beranda-stat-1 .beranda-stat-icon { background: rgba(20, 48, 79, 0.1); color: var(--pkg-primary); }
 .beranda-stat-2::before { background: linear-gradient(90deg, var(--pkg-accent), #e0bc3a); }
 .beranda-stat-2 .beranda-stat-icon { background: rgba(201, 162, 39, 0.12); color: var(--pkg-accent-dark); }
-.beranda-stat-3::before { background: linear-gradient(90deg, #066838, #0a8a4a); }
-.beranda-stat-3 .beranda-stat-icon { background: rgba(6, 130, 85, 0.1); color: #066838; }
+.beranda-stat-3::before { background: linear-gradient(90deg, #0f5257, #166a70); }
+.beranda-stat-3 .beranda-stat-icon { background: rgba(15, 82, 87, 0.1); color: #0f5257; }
 .beranda-stat-4::before { background: linear-gradient(90deg, #1a6aa3, #2a8ad3); }
 .beranda-stat-4 .beranda-stat-icon { background: rgba(26, 106, 163, 0.1); color: #1a6aa3; }
 
@@ -447,7 +447,7 @@ a:hover { color: var(--pkg-primary-dark); }
   border: 1px solid rgba(0, 0, 0, 0.03);
 }
 .beranda-panel-header {
-  background: linear-gradient(180deg, #fff 0%, #f9fdfa 100%);
+  background: linear-gradient(180deg, #fff 0%, #f7fafd 100%);
   border-bottom: 2px solid var(--pkg-primary);
   font-weight: 700;
   font-size: .85rem;
@@ -461,7 +461,7 @@ a:hover { color: var(--pkg-primary-dark); }
 /* Role Cards */
 .beranda-role-card {
   background: #fff;
-  border: 1px solid #e8f0ea;
+  border: 1px solid #e7edf4;
   border-radius: .75rem;
   padding: 1.1rem .85rem;
   text-align: center;
@@ -488,16 +488,16 @@ a:hover { color: var(--pkg-primary-dark); }
   gap: .85rem;
   padding: .85rem 1.25rem !important;
   border: none !important;
-  border-bottom: 1px solid #f0f4f1 !important;
+  border-bottom: 1px solid #eef2f7 !important;
   transition: background .15s;
 }
 .beranda-recent-item:last-child { border-bottom: none !important; }
-.beranda-recent-item:hover { background: #f8fdf9; }
+.beranda-recent-item:hover { background: #f7fafd; }
 .beranda-recent-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(31, 93, 58, 0.08), rgba(201, 162, 39, 0.08));
+  background: linear-gradient(135deg, rgba(20, 48, 79, 0.08), rgba(201, 162, 39, 0.08));
   display: flex;
   align-items: center;
   justify-content: center;
