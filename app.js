@@ -4979,136 +4979,40 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (window.PKGAuth) window.PKGAuth.logout();
   });
 
-  // Seed 3 data guru contoh jika belum ada (HARUS sebelum init(), karena init() bisa tidak resolve)
+  // Hapus data contoh (seed lama: 3 guru + 3 kamad) dari perangkat pengguna.
+  // Berjalan SEKALI per perangkat (flag pkg_v1_sample_cleanup). Record yang NIP+nama
+  // sudah diedit pengguna tidak disentuh. Penilaian/skor/kehadiran/PKB yang menempel
+  // pada guru contoh ikut terhapus (cascade deleteGuru).
   try {
-    if (PKGDB.listGuru().length === 0) {
-      var samples = [
-        {
-          nama: 'Ahmad Fauzi, S.Pd.',
-          jenis_kelamin: 'L',
-          nip: '198501012010011001',
-          nuptk: '64417012345',
-          pendidikan: 'S1 Pendidikan Bahasa Indonesia',
-          mapel_kelas: 'Bahasa Indonesia',
-          jjm: 24,
-          nama_madrasah: 'MTs Negeri 1 Jember',
-          alamat_madrasah: 'Jl. Gajah Mada No. 45, Jember',
-          kkm: 'KKMA 04 Jember',
-          kabupaten: 'Kabupaten Jember',
-          nama_kamad: 'Drs. H. Sutrisno, M.Pd.',
-          tahun_pelajaran: '2025/2026',
-          semester: 'Ganjil'
-        },
-        {
-          nama: 'Siti Nur Aisyah, S.Pd.I.',
-          jenis_kelamin: 'P',
-          nip: '199003152011012005',
-          nuptk: '64417056789',
-          pendidikan: 'S1 Pendidikan Agama Islam',
-          mapel_kelas: 'Akidah Akhlak',
-          jjm: 20,
-          nama_madrasah: 'MTs Negeri 1 Jember',
-          alamat_madrasah: 'Jl. Gajah Mada No. 45, Jember',
-          kkm: 'KKMA 04 Jember',
-          kabupaten: 'Kabupaten Jember',
-          nama_kamad: 'Drs. H. Sutrisno, M.Pd.',
-          tahun_pelajaran: '2025/2026',
-          semester: 'Ganjil'
-        },
-        {
-          nama: 'Muhammad Rizki, S.Pd.',
-          jenis_kelamin: 'L',
-          nip: '198811052009011002',
-          nuptk: '64417034567',
-          pendidikan: 'S1 Pendidikan Matematika',
-          mapel_kelas: 'Matematika',
-          jjm: 22,
-          nama_madrasah: 'MTs Negeri 2 Jember',
-          alamat_madrasah: 'Jl. Imam Bonjol No. 10, Jember',
-          kkm: 'KKMA 04 Jember',
-          kabupaten: 'Kabupaten Jember',
-          nama_kamad: 'H. Abdul Rahman, S.Pd., M.Pd.',
-          tahun_pelajaran: '2025/2026',
-          semester: 'Ganjil'
+    if (!localStorage.getItem('pkg_v1_sample_cleanup')) {
+      var sampleMap = {
+        '198501012010011001': 'Ahmad Fauzi, S.Pd.',
+        '199003152011012005': 'Siti Nur Aisyah, S.Pd.I.',
+        '198811052009011002': 'Muhammad Rizki, S.Pd.',
+        '196505121019980311': 'Drs. H. Sutrisno, M.Pd.',
+        '197003201020051012': 'H. Abdul Rahman, S.Pd., M.Pd.',
+        '197510052010012003': 'Hj. Nur Halimah, S.Pd., M.Pd.I.'
+      };
+      var removedCount = 0;
+      PKGDB.listGuru().forEach(function (g) {
+        var nip = String(g.nip || '').trim();
+        if (sampleMap[nip] && String(g.nama || '').trim() === sampleMap[nip]) {
+          PKGDB.deleteGuru(g.id);
+          removedCount++;
         }
-      ];
-      samples.forEach(function(s) { PKGDB.saveGuru(s, null); });
-      console.log('Seed: 3 data guru contoh ditambahkan');
+      });
+      PKGDB.listKamad().forEach(function (k) {
+        var nip = String(k.nip || '').trim();
+        if (sampleMap[nip] && String(k.nama || '').trim() === sampleMap[nip]) {
+          PKGDB.deleteKamad(k.id);
+          removedCount++;
+        }
+      });
+      localStorage.setItem('pkg_v1_sample_cleanup', String(Date.now()));
+      if (removedCount > 0) console.log('Cleanup data contoh:', removedCount, 'record dihapus');
     }
-  } catch (e) { console.error('Seed guru error:', e); }
+  } catch (e) { console.error('Cleanup data contoh error:', e); }
 
-  // Seed 3 data kamad contoh jika belum ada
-  try {
-    if (PKGDB.listKamad().length === 0) {
-      var kamadSamples = [
-        {
-          nama: 'Drs. H. Sutrisno, M.Pd.',
-          gelar: 'M.Pd.',
-          nip: '196505121019980311',
-          nuptk: '64417011111',
-          jenis_kelamin: 'L',
-          tempat_lahir: 'Jember',
-          tanggal_lahir: '1965-05-12',
-          pendidikan: 'S2 Manajemen Pendidikan',
-          pangkat_gol: 'Pembina IV/c',
-          tmt_kamad: '2018-07-01',
-          periode: '2024-2028',
-          nama_madrasah: 'MTs Negeri 1 Jember',
-          jenjang: 'MTs',
-          alamat_madrasah: 'Jl. Gajah Mada No. 45, Jember',
-          kkm: 'KKMA 04 Jember',
-          kabupaten: 'Kabupaten Jember',
-          nsm: '121132100001',
-          npsn: '20503123',
-          akreditasi: 'A'
-        },
-        {
-          nama: 'H. Abdul Rahman, S.Pd., M.Pd.',
-          gelar: 'M.Pd.',
-          nip: '197003201020051012',
-          nuptk: '64417022222',
-          jenis_kelamin: 'L',
-          tempat_lahir: 'Jember',
-          tanggal_lahir: '1970-03-20',
-          pendidikan: 'S2 Pendidikan Matematika',
-          pangkat_gol: 'Pembina IV/b',
-          tmt_kamad: '2020-07-01',
-          periode: '2024-2028',
-          nama_madrasah: 'MTs Negeri 2 Jember',
-          jenjang: 'MTs',
-          alamat_madrasah: 'Jl. Imam Bonjol No. 10, Jember',
-          kkm: 'KKMA 04 Jember',
-          kabupaten: 'Kabupaten Jember',
-          nsm: '121132100002',
-          npsn: '20503124',
-          akreditasi: 'A'
-        },
-        {
-          nama: 'Hj. Nur Halimah, S.Pd., M.Pd.I.',
-          gelar: 'M.Pd.I.',
-          nip: '197510052010012003',
-          nuptk: '64417033333',
-          jenis_kelamin: 'P',
-          tempat_lahir: 'Banyuwangi',
-          tanggal_lahir: '1975-10-05',
-          pendidikan: 'S2 Pendidikan Agama Islam',
-          pangkat_gol: 'Penata Muda III/d',
-          tmt_kamad: '2022-07-01',
-          periode: '2024-2028',
-          nama_madrasah: 'MI Mathlabul Ulum',
-          jenjang: 'MI',
-          alamat_madrasah: 'Jl. Raya Sukowono No. 8, Jember',
-          kkm: 'KKMA 04 Jember',
-          kabupaten: 'Kabupaten Jember',
-          nsm: '111232100003',
-          npsn: '20503125',
-          akreditasi: 'B'
-        }
-      ];
-      kamadSamples.forEach(function(s) { PKGDB.saveKamad(s, null); });
-      console.log('Seed: 3 data kamad contoh ditambahkan');
-    }
-  } catch (e) { console.error('Seed kamad error:', e); }
 
   // PIN gate: kalau PIN aktif tapi belum unlock, tampilkan lock screen.
   // PKGAuth.init() resolve setelah unlocked.
