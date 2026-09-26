@@ -713,6 +713,16 @@
           width: 100%; padding: 0.65rem; border: 2px solid #ddd; border-radius: 8px; outline: none; font-size: 1rem;\
         }\
         .form-group input:focus { border-color: #14304f; }\
+        .pw-wrap { position: relative; }\
+        .pw-wrap input { padding-right: 2.6rem; }\
+        .pw-toggle {\
+          position: absolute; top: 0; right: 0; height: 100%; width: 2.6rem;\
+          display: flex; align-items: center; justify-content: center;\
+          background: transparent; border: 0; padding: 0; cursor: pointer;\
+          color: #666; font-size: 1.1rem; line-height: 1;\
+        }\
+        .pw-toggle:hover { color: #14304f; }\
+        .pw-toggle:focus { outline: none; color: #14304f; }\
         .btn-auth-submit {\
           width: 100%; background: #14304f; color: white; border: 0;\
           padding: 0.75rem; border-radius: 8px; font-weight: 600; cursor: pointer;\
@@ -736,7 +746,10 @@
         </div>\
         <div class="form-group">\
           <label>Password</label>\
-          <input id="login-password" type="password" placeholder="Password" autocomplete="off">\
+          <div class="pw-wrap">\
+            <input id="login-password" type="password" placeholder="Password" autocomplete="off">\
+            <button type="button" class="pw-toggle" data-target="login-password" aria-label="Lihat password" title="Lihat password"><i class="bi bi-eye"></i></button>\
+          </div>\
         </div>\
         <button class="btn-auth-submit" id="btn-login">Masuk</button>\
         <div style="text-align:center; margin-top:1rem; font-size:.85rem;">\
@@ -754,6 +767,21 @@
     var errEl = document.getElementById('auth-login-err');
     var userInput = document.getElementById('login-username');
     var passInput = document.getElementById('login-password');
+
+    // Toggle lihat/sembunyikan password (ikon mata) — sama seperti halaman aktivasi
+    overlay.querySelectorAll('.pw-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var inp = document.getElementById(btn.getAttribute('data-target'));
+        if (!inp) return;
+        var show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        var ic = btn.querySelector('i');
+        if (ic) ic.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+        var lbl = show ? 'Sembunyikan password' : 'Lihat password';
+        btn.setAttribute('aria-label', lbl);
+        btn.setAttribute('title', lbl);
+      });
+    });
 
     // Petunjuk: tampilkan username yang terdaftar di perangkat ini supaya tidak tertukar
     // dengan nama madrasah / nama lengkap.
