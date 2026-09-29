@@ -809,6 +809,64 @@
       return '<br><span style="font-size:.78rem;color:#7a5c00;">Akun lama ini belum tersimpan di server. Gunakan tombol <b>Simpan Akun ke Server</b> (kuning) di atas.</span>';
     }
 
+    // Form klaim akun lama langsung di halaman login (menggantikan prompt berurutan).
+    // Dipicu dari tombol kuning "Simpan Akun ke Server" atau saat login gagal (NO_ACCOUNT).
+    function showInlineClaim(prefillUsername) {
+      if (document.getElementById('claim-form-box')) return;
+      var _err = document.getElementById('auth-login-err');
+      if (_err) _err.textContent = '';
+      var storedCode = (localStorage.getItem(KEY_ACTIVATION_CODE) || '').trim().toUpperCase();
+      var storedUser = (localStorage.getItem(KEY_USER_USERNAME) || (prefillUsername || '')).trim();
+      var box = document.createElement('div');
+      box.id = 'claim-form-box';
+      box.style.cssText = 'background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:.9rem;margin-bottom:1rem;';
+      box.innerHTML =
+        '<div style="font-weight:800;color:#92600a;font-size:.9rem;margin-bottom:.4rem;"><i class="bi bi-cloud-arrow-up"></i> Simpan Akun Lama ke Server</div>' +
+        '<div style="font-size:.78rem;color:#6b5300;line-height:1.4;margin-bottom:.6rem;">Sistem baru memakai <b>1 kode = 1 akun</b>. Buat password untuk akun Anda supaya bisa login dari perangkat mana pun. Cukup sekali, dari perangkat ini.</div>' +
+        '<div class="form-group" style="margin-bottom:.5rem;"><label>Kode Aktivasi</label><input id="claim-code" type="text" value="' + escapeHtml(storedCode) + '" readonly style="background:#f2f2f2;"></div>' +
+        '<div class="form-group" style="margin-bottom:.5rem;"><label>Username</label><input id="claim-username" type="text" value="' + escapeHtml(storedUser) + '" readonly style="background:#f2f2f2;"></div>' +
+        '<div class="form-group" style="margin-bottom:.5rem;"><label>Password Baru (min. 6 karakter)</label><div class="pw-wrap"><input id="claim-password" type="password" placeholder="Password baru"><button type="button" class="pw-toggle" data-target="claim-password" aria-label="Lihat password"><i class="bi bi-eye"></i></button></div></div>' +
+        '<div class="form-group" style="margin-bottom:.6rem;"><label>Ulangi Password</label><input id="claim-confirm" type="password" placeholder="Ulangi password"></div>' +
+        '<div id="claim-status" style="font-size:.78rem;min-height:1.1rem;margin-bottom:.45rem;"></div>' +
+        '<button id="btn-claim-submit" class="btn-auth-submit" style="margin-top:0;background:#f59e0b;color:#14304f;">Simpan Akun ke Server</button>' +
+        '<div style="text-align:center;margin-top:.5rem;"><a id="claim-cancel" style="font-size:.8rem;color:#14304f;cursor:pointer;text-decoration:underline;">Batal</a></div>';
+      var firstFormGroup = overlay.querySelector('.form-group');
+      if (firstFormGroup && firstFormGroup.parentNode) firstFormGroup.parentNode.insertBefore(box, firstFormGroup);
+      box.querySelectorAll('.pw-toggle').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var inp = document.getElementById(b.getAttribute('data-target'));
+          if (!inp) return;
+          var show = inp.type === 'password';
+          inp.type = show ? 'text' : 'password';
+          var ic = b.querySelector('i'); if (ic) ic.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+        });
+      });
+      var stBox = document.getElementById('claim-status');
+      var btnSubmit = document.getElementById('btn-claim-submit');
+      var pwdEl = document.getElementById('claim-password');
+      var confEl = document.getElementById('claim-confirm');
+      var cancelEl = document.getElementById('claim-cancel');
+      if (cancelEl) cancelEl.addEventListener('click', function () { box.remove(); });
+      btnSubmit.addEventListener('click', async function () {
+        var p1 = pwdEl.value || '';
+        var p2 = confEl.value || '';
+        if (p1.length < 6) { stBox.style.color = '#c0392b'; stBox.textContent = 'Password minimal 6 karakter.'; return; }
+        if (p1 !== p2) { stBox.style.color = '#c0392b'; stBox.textContent = 'Konfirmasi password tidak cocok.'; return; }
+        btnSubmit.disabled = true;
+        stBox.style.color = '#1e40af'; stBox.textContent = 'Menyimpan ke server...';
+        await claimLegacyAccount(function (ok, msg) {
+          if (ok) {
+            stBox.style.color = '#0a6832'; stBox.textContent = msg || 'Berhasil! Memuat ulang...';
+            btnSubmit.textContent = 'Berhasil — memuat ulang...';
+            setTimeout(function () { location.reload(); }, 1300);
+          } else {
+            btnSubmit.disabled = false;
+            stBox.style.color = '#c0392b'; stBox.textContent = msg || 'Gagal. Coba lagi.';
+          }
+        }, p1);
+      });
+    }
+
     if (legacyNeedsMigration()) {
       var legacyBox = document.createElement('div');
       legacyBox.id = 'legacy-migrate-box';
@@ -826,19 +884,9 @@
       var btnLegacyMig = document.getElementById('btn-legacy-migrate');
       if (btnLegacyMig) {
         btnLegacyMig.addEventListener('click', function () {
-          var stBox = document.getElementById('legacy-migrate-status');
-          btnLegacyMig.disabled = true;
-          if (stBox) { stBox.style.color = '#1e40af'; stBox.textContent = 'Menyimpan ke server...'; }
-          claimLegacyAccount(function (ok, msg) {
-            if (ok) {
-              if (stBox) { stBox.style.color = '#0a6832'; stBox.textContent = msg || 'Berhasil!'; }
-              btnLegacyMig.textContent = 'Berhasil — memuat ulang...';
-              setTimeout(function () { location.reload(); }, 1200);
-            } else {
-              btnLegacyMig.disabled = false;
-              if (stBox) { stBox.style.color = '#c0392b'; stBox.textContent = msg || 'Gagal. Coba lagi.'; }
-            }
-          });
+          var b = document.getElementById('legacy-migrate-box');
+          if (b) b.style.display = 'none';
+          showInlineClaim();
         });
       }
     }
@@ -891,7 +939,7 @@
       }
 
       // Server menjawab tapi kredensial bukan admin valid → coba sebagai akun pengguna (online).
-      tryServerUserLogin(username, password);
+      return tryServerUserLogin(username, password);
     }
 
     // Tambal jalur login pengguna LAMA (sistem 1 kode = 1 perangkat).
@@ -970,13 +1018,16 @@
 
       var st = (res && res.status) || '';
       var msg = (res && res.message) || '';
-      // Pengguna LAMA: akunnya belum ada di server → coba data lokal dulu.
+      // Pengguna LAMA: akunnya belum ada di server.
       if (st === 'NO_ACCOUNT') {
+        // 1) Data lama di perangkat ini cocok → izinkan masuk lokal supaya tidak terkunci.
         if (tryLegacyLocalFallback(username, password, st, msg)) return;
-      }
-      if (st === 'NO_ACCOUNT') {
+        // 2) Perangkat ini punya aktivasi lama → tawarkan klaim jadi akun server (form langsung).
+        if (legacyNeedsMigration()) { showInlineClaim(username); return; }
         errEl.innerHTML = 'Akun tidak ditemukan di server. Pastikan username benar, atau aktivasi dulu.' + legacyHint();
-      } else if (st === 'WRONG_PASSWORD') {
+        return;
+      }
+      if (st === 'WRONG_PASSWORD') {
         errEl.textContent = 'Password salah.';
       } else if (st === 'REVOKED') {
         errEl.textContent = 'Akun ini diblokir Admin. Hubungi Admin.';
@@ -1241,7 +1292,7 @@
 
   // Klaim akun lama menjadi akun server. Dipakai dari halaman Pengaturan Akun.
   // Mengembalikan hasil lewat callback: cb(ok, message).
-  async function claimLegacyAccount(cb) {
+  async function claimLegacyAccount(cb, presetPassword) {
     function done(ok, msg) { try { cb(ok, msg); } catch (e) { console.error(e); } }
 
     if (!window.SupabaseSync || !window.SupabaseSync.claimAccount || !window.SupabaseSync.hasConfig()) {
@@ -1259,11 +1310,14 @@
       done(false, 'Kode aktivasi/username tidak ditemukan di perangkat ini. Hubungi Admin untuk dibuatkan akun baru.');
       return;
     }
-    var pwd = prompt('Buat password untuk akun Anda (minimal 6 karakter).\nIni password yang dipakai untuk login di perangkat mana pun:');
-    if (pwd === null) { done(false, 'Dibatalkan.'); return; }
-    if (pwd.length < 6) { done(false, 'Password minimal 6 karakter.'); return; }
-    var again = prompt('Ulangi password:');
-    if (again === null || again !== pwd) { done(false, 'Konfirmasi password tidak cocok.'); return; }
+    var pwd = (typeof presetPassword === 'string' && presetPassword.length) ? presetPassword : null;
+    if (!pwd) {
+      pwd = prompt('Buat password untuk akun Anda (minimal 6 karakter).\nIni password yang dipakai untuk login di perangkat mana pun:');
+      if (pwd === null) { done(false, 'Dibatalkan.'); return; }
+      if (pwd.length < 6) { done(false, 'Password minimal 6 karakter.'); return; }
+      var again = prompt('Ulangi password:');
+      if (again === null || again !== pwd) { done(false, 'Konfirmasi password tidak cocok.'); return; }
+    }
 
     var res = null;
     try {
