@@ -5060,7 +5060,15 @@ if (window.jQuery) {
 }
 
 window.render = render;
-window.wireHashLinks = function () { /* sekarang pakai delegasi klik global — tidak perlu apa-apa */ };
+
+// Simpan halaman terakhir yang dituju. index.html di-load dengan hash '#/', jadi saat
+// init() auth.js jalan, hash asli belum kebaca → filter aktivasi/logout salah halaman.
+// Dicatat SEBELUM event hash apa pun berjalan.
+try {
+  if (window.location.hash && window.location.hash !== '#/') {
+    sessionStorage.setItem('pkg_intended_route', window.location.hash);
+  }
+} catch (e) {}
 
 // (alih-alih pakai daftar statis di atas, biarkan satu definisi render)
 window.addEventListener('hashchange', render);

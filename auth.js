@@ -1596,9 +1596,13 @@
 
   // --- INITIALIZATION ---
   async function init() {
-    // 0. Bypass aktivasi kalau admin akses #/kelola-aktivasi (chicken-and-egg fix)
+    // 0. Bypass aktivasi kalau admin akses #/kelola-aktivasi (chicken-and-egg fix).
+    // Cek lewat sessionStorage juga, karena entry index.html ber-hash '#/' sehingga
+    // hash asli belum kebaca saat init() jalan.
     var hash = window.location.hash || '';
-    var isAdminRoute = hash.indexOf('kelola-aktivasi') >= 0;
+    var intended = '';
+    try { intended = sessionStorage.getItem('pkg_intended_route') || ''; } catch (e) {}
+    var isAdminRoute = hash.indexOf('kelola-aktivasi') >= 0 || intended.indexOf('kelola-aktivasi') >= 0;
     if (isAdminRoute) {
       // Skip aktivasi, biarkan app.js render halaman kelola-aktivasi
       var o = document.getElementById('pkg-auth-overlay');

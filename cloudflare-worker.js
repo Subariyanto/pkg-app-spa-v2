@@ -52,7 +52,7 @@ async function hmac(secret, data) {
   return btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-const SESSION_TTL_SECONDS = 8 * 3600; // 8 jam
+const SESSION_TTL_SECONDS = 7 * 24 * 3600; // 7 hari
 
 function getAuthSecret(env) {
   return env.ADMIN_SECRET || env.ADMIN_TOKEN || '';
