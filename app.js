@@ -4963,8 +4963,66 @@ function rebuildShell() {
   if (oldNav) oldNav.remove();
   renderShell();
   wireNavPeriodeSelector();
+  wireHashLinks();
 }
 window.rebuildShell = rebuildShell;
+
+// Bootstrap dropdown navbar TIDAK bisa jalan kalau tag <script> Bootstrap dimuat
+// SETELAH shell di-render (kasus halaman #/kelola-aktivasi, karena sesi admin
+// dibaca dari localStorage dan <script> app.js ikut di-skip). Akibatnya menu
+// 'Akun' tidak mau kebuka. Fix: buka/tutup dropdown manual dengan delegasi klik
+// + tutup lagi kalau klik di luar.
+document.addEventListener('click', function (ev) {
+  var toggle = ev.target.closest('.nav-item.dropdown > .nav-link.dropdown-toggle');
+  var openMenus = document.querySelectorAll('.nav-item.dropdown > .dropdown-menu.show');
+  if (toggle) {
+    ev.preventDefault();
+    var menu = toggle.parentElement.querySelector('.dropdown-menu');
+    var wasOpen = menu && menu.classList.contains('show');
+    openMenus.forEach(function (m) {
+      m.classList.remove('show');
+      var pr = m.parentElement;
+      pr.classList.remove('show');
+      var t = pr.querySelector('.dropdown-toggle');
+      if (t) t.setAttribute('aria-expanded', 'false');
+    });
+    if (!wasOpen && menu) {
+      menu.classList.add('show');
+      toggle.parentElement.classList.add('show');
+      toggle.setAttribute('aria-expanded', 'true');
+    }
+    return;
+  }
+  if (!ev.target.closest('.dropdown-menu')) {
+    openMenus.forEach(function (m) {
+      m.classList.remove('show');
+      m.parentElement.classList.remove('show');
+      var t = m.parentElement.querySelector('.dropdown-toggle');
+      if (t) t.setAttribute('aria-expanded', 'false');
+    });
+  }
+});
+
+// Navigasi hash (#/xxx) via delegasi klik. Wajib, karena <script> Bootstrap
+// TIDAK ikut dimuat di halaman #/kelola-aktivasi → semua data-toggle/data-bs-toggle
+// tidak berfungsi, termasuk link 'Kelola Kode Aktivasi' di menu Akun.
+document.addEventListener('click', function (ev) {
+  var a = ev.target.closest('a[href^="#/"], a[data-nav]');
+  if (!a) return;
+  var href = a.getAttribute('href') || '';
+  if (href.indexOf('#/') !== 0) return;
+  ev.preventDefault();
+  var dd = a.closest('.dropdown-menu');
+  if (dd) {
+    dd.classList.remove('show');
+    dd.parentElement.classList.remove('show');
+  }
+  var collapsed = document.getElementById('nav');
+  if (collapsed && collapsed.classList.contains('show')) collapsed.classList.remove('show');
+  location.hash = href;
+  if (location.hash === href && typeof render === 'function') render();
+});
+window.wireHashLinks = function () { /* sekarang pakai delegasi klik global — tidak perlu apa-apa */ };
 
 window.render = render;
 window.addEventListener('hashchange', render);
