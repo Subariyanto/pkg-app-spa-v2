@@ -5684,10 +5684,11 @@ function viewKelolaAktivasi(view) {
     } catch (e) { /* no-op */ }
   }
 
-  async function wireAkunPanel() {
+  function wireActivationTabs() {
     var tabKode = document.getElementById('tab-kode');
     if (tabKode) tabKode.addEventListener('click', function (e) {
       e.preventDefault();
+      e.stopPropagation();
       state.tab = 'kode';
       renderPanel();
       syncTabHash('kode');
@@ -5695,10 +5696,15 @@ function viewKelolaAktivasi(view) {
     var tabAkun = document.getElementById('tab-akun');
     if (tabAkun) tabAkun.addEventListener('click', function (e) {
       e.preventDefault();
+      e.stopPropagation();
       state.tab = 'akun';
       renderPanel();
       syncTabHash('akun');
     });
+  }
+
+  async function wireAkunPanel() {
+    wireActivationTabs();
 
     var btnRefreshAkun = document.getElementById('btn-refresh-akun');
     if (btnRefreshAkun) btnRefreshAkun.addEventListener('click', async function () {
@@ -6193,6 +6199,11 @@ function viewKelolaAktivasi(view) {
   }
 
   async function wirePanel() {
+    // Tab juga harus dipasang saat panel Kode pertama kali dirender.
+    // Sebelumnya listener hanya dipasang di wireAkunPanel(), sehingga klik
+    // dari tab Kode memakai href="#" dan browser kembali ke halaman awal.
+    wireActivationTabs();
+
     var btnBuat1 = document.getElementById('btn-buat-1');
     if (btnBuat1) btnBuat1.addEventListener('click', function () {
       if (state.creating) return;
