@@ -4967,47 +4967,76 @@ function rebuildShell() {
 }
 window.rebuildShell = rebuildShell;
 
-// Bootstrap dropdown navbar TIDAK bisa jalan kalau tag <script> Bootstrap dimuat
-// SETELAH shell di-render (kasus halaman #/kelola-aktivasi, karena sesi admin
-// dibaca dari localStorage dan <script> app.js ikut di-skip). Akibatnya menu
-// 'Akun' tidak mau kebuka. Fix: buka/tutup dropdown manual dengan delegasi klik
-// + tutup lagi kalau klik di luar.
+// ======================================================================
+// Bootstrap DROPDOWN & COLLAPSE — implementasi lokal (tanpa Bootstrap JS).
+// Dipakai menggantikan bootstrap.bundle.min.js yang datang dari CDN.
+// Alasan: CDN sering diblokir jaringan madrasah → shell ter-render TAPI
+// dropdown navbar mati total (menu 'Akun' tidak bisa diklik). Dengan CSS
+// Bootstrap tetap jalan dan JS-nya kita sediakan sendiri, navbar selalu hidup.
+// ======================================================================
+
+// Toggle dropdown navbar (delegasi klik global)
 document.addEventListener('click', function (ev) {
-  var toggle = ev.target.closest('.nav-item.dropdown > .nav-link.dropdown-toggle');
-  var openMenus = document.querySelectorAll('.nav-item.dropdown > .dropdown-menu.show');
+  var toggle = ev.target.closest('.dropdown-toggle');
+  var openMenus = document.querySelectorAll('.dropdown-menu.show');
+
   if (toggle) {
+    // jangan ganggu dropdown di dalam modal / komponen lain tanpa induk .dropdown
+    var holder = toggle.closest('.dropdown, .nav-item');
+    if (!holder) return;
     ev.preventDefault();
-    var menu = toggle.parentElement.querySelector('.dropdown-menu');
-    var wasOpen = menu && menu.classList.contains('show');
+    var menu = holder.querySelector('.dropdown-menu');
+    if (!menu) return;
+    var wasOpen = menu.classList.contains('show');
     openMenus.forEach(function (m) {
+      if (m === menu) return;
       m.classList.remove('show');
-      var pr = m.parentElement;
-      pr.classList.remove('show');
-      var t = pr.querySelector('.dropdown-toggle');
+      var pr = m.closest('.dropdown, .nav-item');
+      if (pr) pr.classList.remove('show');
+      var t = pr && pr.querySelector('.dropdown-toggle');
       if (t) t.setAttribute('aria-expanded', 'false');
     });
-    if (!wasOpen && menu) {
+    if (wasOpen) {
+      menu.classList.remove('show');
+      holder.classList.remove('show');
+      toggle.setAttribute('aria-expanded', 'false');
+    } else {
       menu.classList.add('show');
-      toggle.parentElement.classList.add('show');
+      holder.classList.add('show');
       toggle.setAttribute('aria-expanded', 'true');
     }
     return;
   }
+
+  // klik di luar menu → tutup semua
   if (!ev.target.closest('.dropdown-menu')) {
     openMenus.forEach(function (m) {
       m.classList.remove('show');
-      m.parentElement.classList.remove('show');
-      var t = m.parentElement.querySelector('.dropdown-toggle');
+      var pr = m.closest('.dropdown, .nav-item');
+      if (pr) pr.classList.remove('show');
+      var t = pr && pr.querySelector('.dropdown-toggle');
       if (t) t.setAttribute('aria-expanded', 'false');
     });
   }
 });
 
-// Navigasi hash (#/xxx) via delegasi klik. Wajib, karena <script> Bootstrap
-// TIDAK ikut dimuat di halaman #/kelola-aktivasi → semua data-toggle/data-bs-toggle
-// tidak berfungsi, termasuk link 'Kelola Kode Aktivasi' di menu Akun.
+// Toggle navbar collapse (tombol hamburger di layar kecil)
 document.addEventListener('click', function (ev) {
-  var a = ev.target.closest('a[href^="#/"], a[data-nav]');
+  var btn = ev.target.closest('[data-bs-toggle="collapse"]');
+  if (!btn) return;
+  var sel = btn.getAttribute('data-bs-target') || '#nav';
+  var target = document.querySelector(sel);
+  if (!target) return;
+  ev.preventDefault();
+  var isShown = target.classList.contains('show');
+  target.classList.toggle('show', !isShown);
+  btn.setAttribute('aria-expanded', isShown ? 'false' : 'true');
+});
+
+// Navigasi hash (#/xxx) via delegasi klik — supaya semua link menu tetap jalan
+// walau Bootstrap JS tidak ada.
+document.addEventListener('click', function (ev) {
+  var a = ev.target.closest('a[href^="#/"]');
   if (!a) return;
   var href = a.getAttribute('href') || '';
   if (href.indexOf('#/') !== 0) return;
@@ -5015,13 +5044,16 @@ document.addEventListener('click', function (ev) {
   var dd = a.closest('.dropdown-menu');
   if (dd) {
     dd.classList.remove('show');
-    dd.parentElement.classList.remove('show');
+    var pr = dd.closest('.dropdown, .nav-item');
+    if (pr) pr.classList.remove('show');
   }
   var collapsed = document.getElementById('nav');
   if (collapsed && collapsed.classList.contains('show')) collapsed.classList.remove('show');
   location.hash = href;
   if (location.hash === href && typeof render === 'function') render();
 });
+
+window.render = render;
 window.wireHashLinks = function () { /* sekarang pakai delegasi klik global — tidak perlu apa-apa */ };
 
 window.render = render;
