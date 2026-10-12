@@ -5539,15 +5539,15 @@ function viewKelolaAktivasi(view) {
     if (tabKode) tabKode.addEventListener('click', function (e) {
       e.preventDefault();
       state.tab = 'kode';
-      syncTabHash('kode');
       renderPanel();
+      syncTabHash('kode');
     });
     var tabAkun = document.getElementById('tab-akun');
     if (tabAkun) tabAkun.addEventListener('click', function (e) {
       e.preventDefault();
       state.tab = 'akun';
-      syncTabHash('akun');
       renderPanel();
+      syncTabHash('akun');
     });
 
     var btnRefreshAkun = document.getElementById('btn-refresh-akun');
