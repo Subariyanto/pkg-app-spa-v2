@@ -261,9 +261,6 @@ function render() {
   if (s0 === 'identitas-dokumen') return viewIdentitasDokumen(view);
   if (s0 === 'pengaturan-pin') return window.PKGAuth.viewPengaturanPIN(view);
   if (s0 === 'kelola-aktivasi') {
-    // Tab tujuan dari hash (#/kelola-aktivasi?tab=akun) — biar klik tab tidak balik ke Beranda.
-    var _tabWant = (query.tab === 'akun') ? 'akun' : 'kode';
-    if (state.tab !== _tabWant) state.tab = _tabWant;
     var _ui = window.PKGAuth ? window.PKGAuth.getUserInfo() : { role: '' };
     var _adminLoggedIn = window.PKGAuth && window.PKGAuth.isAdminLoggedIn();
     // Allow trial & user belum aktivasi — viewKelolaAktivasi akan tampilkan form login admin
