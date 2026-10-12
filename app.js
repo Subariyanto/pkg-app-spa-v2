@@ -261,6 +261,9 @@ function render() {
   if (s0 === 'identitas-dokumen') return viewIdentitasDokumen(view);
   if (s0 === 'pengaturan-pin') return window.PKGAuth.viewPengaturanPIN(view);
   if (s0 === 'kelola-aktivasi') {
+    // Tab tujuan dari hash (#/kelola-aktivasi?tab=akun) — biar klik tab tidak balik ke Beranda.
+    var _tabWant = (query.tab === 'akun') ? 'akun' : 'kode';
+    if (state.tab !== _tabWant) state.tab = _tabWant;
     var _ui = window.PKGAuth ? window.PKGAuth.getUserInfo() : { role: '' };
     var _adminLoggedIn = window.PKGAuth && window.PKGAuth.isAdminLoggedIn();
     // Allow trial & user belum aktivasi — viewKelolaAktivasi akan tampilkan form login admin
@@ -5097,7 +5100,7 @@ function viewKelolaAktivasi(view) {
     adminLoggedIn: localStorage.getItem(KEY_ADMIN_LOGGED_IN) === 'true',
     adminUsername: localStorage.getItem('pkg_admin_username') || '',
     sessionExpired: false, // true kalau token 8 jam kedaluwarsa → tampilkan info di layar login
-    tab: 'kode', // 'kode' | 'akun'
+    tab: (window.location.hash.indexOf('tab=akun') >= 0 ? 'akun' : 'kode'), // 'kode' | 'akun'
     kodes: [],
     akun: [],
     stats: { total: 0, unused: 0, activated: 0, revoked: 0, accounts: 0, blocked: 0 },
@@ -5424,17 +5427,30 @@ function viewKelolaAktivasi(view) {
     wireAkunPanel();
   }
 
+  // Sinkronkan hash URL dengan tab aktif supaya klik tab tidak balik ke Beranda
+  // (router memakai hash '#/kelola-aktivasi' dan mengabaikan hash yang tidak dikenal).
+  function syncTabHash(tab) {
+    try {
+      var target = '#/kelola-aktivasi' + (tab === 'akun' ? '?tab=akun' : '');
+      if (window.location.hash !== target) {
+        history.replaceState(null, '', target);
+      }
+    } catch (e) { /* no-op */ }
+  }
+
   async function wireAkunPanel() {
     var tabKode = document.getElementById('tab-kode');
     if (tabKode) tabKode.addEventListener('click', function (e) {
       e.preventDefault();
       state.tab = 'kode';
+      syncTabHash('kode');
       renderPanel();
     });
     var tabAkun = document.getElementById('tab-akun');
     if (tabAkun) tabAkun.addEventListener('click', function (e) {
       e.preventDefault();
       state.tab = 'akun';
+      syncTabHash('akun');
       renderPanel();
     });
 
