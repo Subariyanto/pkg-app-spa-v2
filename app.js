@@ -5149,6 +5149,9 @@ if (!window.bootstrap.Modal) {
       if (el) el.__pkgModal = inst;
       return inst;
     };
+    // Static API harus ditempel pada constructor wrapper juga; kode aplikasi
+    // memanggil window.bootstrap.Modal.getInstance(element).
+    window.bootstrap.Modal.getInstance = BModal.getInstance;
     window.bootstrap.Modal.prototype = BModal.prototype;
   })();
 
