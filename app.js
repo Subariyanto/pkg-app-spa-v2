@@ -5059,6 +5059,100 @@ if (window.jQuery) {
   });
 }
 
+
+// ======================================================================
+// Bootstrap Modal — implementasi lokal (tanpa Bootstrap JS dari CDN).
+// Bootstrap JS dimuat dari CDN; di jaringan yang memblokir CDN, semua
+// `new bootstrap.Modal(...)` gagal → modal 'Buat Kode' tidak muncul.
+// Shim ini meniru API yang dipakai app (show/hide/toggle/getInstance/dispose)
+// + memicu event hidden.bs.modal supaya logika cleanup tetap jalan.
+// ======================================================================
+if (typeof window.bootstrap === 'undefined') {
+  window.bootstrap = {};
+}
+if (!window.bootstrap.Modal) {
+  (function () {
+    function BModal(el, opts) {
+      this._el = el;
+      this._opts = opts || {};
+      this._isShown = false;
+      this._onBackdrop = null;
+      this._keyHandler = null;
+      this._backdropEl = null;
+    }
+    BModal.prototype.show = function () {
+      var self = this;
+      var el = this._el;
+      if (!el || this._isShown) return;
+      this._isShown = true;
+
+      // backdrop
+      var bd = document.createElement('div');
+      bd.className = 'modal-backdrop fade show';
+      document.body.appendChild(bd);
+      this._backdropEl = bd;
+      bd.addEventListener('click', function () {
+        if (self._opts.backdrop === false || self._opts.backdrop === 'static') return;
+        self.hide();
+      });
+
+      document.body.classList.add('modal-open');
+      el.style.display = 'block';
+      el.removeAttribute('aria-hidden');
+      el.setAttribute('aria-modal', 'true');
+      el.setAttribute('role', 'dialog');
+      el.classList.add('show');
+      // paksa reflow → transisi masuk
+      void el.offsetHeight;
+
+      this._keyHandler = function (ev) {
+        if (ev.key === 'Escape' && self._opts.keyboard !== false) self.hide();
+      };
+      document.addEventListener('keydown', this._keyHandler);
+    };
+    BModal.prototype.hide = function () {
+      var el = this._el;
+      if (!el || !this._isShown) return;
+      this._isShown = false;
+      el.classList.remove('show');
+      el.style.display = 'none';
+      el.setAttribute('aria-hidden', 'true');
+      if (this._backdropEl && this._backdropEl.parentNode) {
+        this._backdropEl.parentNode.removeChild(this._backdropEl);
+      }
+      this._backdropEl = null;
+      if (!document.querySelector('.modal.show')) {
+        document.body.classList.remove('modal-open');
+      }
+      if (this._keyHandler) {
+        document.removeEventListener('keydown', this._keyHandler);
+        this._keyHandler = null;
+      }
+      var ev;
+      try { ev = new Event('hidden.bs.modal', { bubbles: false }); }
+      catch (e) { ev = document.createEvent('Event'); ev.initEvent('hidden.bs.modal', false, false); }
+      el.dispatchEvent(ev);
+    };
+    BModal.prototype.toggle = function () {
+      if (this._isShown) this.hide(); else this.show();
+    };
+    BModal.prototype.dispose = function () {
+      this.hide();
+      this._el = null;
+    };
+    BModal.getInstance = function (el) {
+      return (el && el.__pkgModal) ? el.__pkgModal : null;
+    };
+
+    window.bootstrap.Modal = function (el, opts) {
+      var inst = BModal.getInstance(el) || new BModal(el, opts);
+      if (el) el.__pkgModal = inst;
+      return inst;
+    };
+    window.bootstrap.Modal.prototype = BModal.prototype;
+  })();
+}
+
 window.render = render;
 
 // Simpan halaman terakhir yang dituju. index.html di-load dengan hash '#/', jadi saat
