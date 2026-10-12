@@ -5053,6 +5053,15 @@ document.addEventListener('click', function (ev) {
   if (location.hash === href && typeof render === 'function') render();
 });
 
+// Fallback dropdown pakai jQuery (Bootstrap 5 tetap mendukung jQuery Data API):
+// kalau implementasi manual di atas tidak jalan karena alasan apa pun (mis. ada
+// skrip lain yang men-stopPropagation), jQuery tetap membuka menunya.
+if (window.jQuery) {
+  window.jQuery(document).on('show.bs.dropdown', function () {
+    window.jQuery('.dropdown-menu.show').not(window.jQuery(this).find('.dropdown-menu')).removeClass('show');
+  });
+}
+
 window.render = render;
 window.wireHashLinks = function () { /* sekarang pakai delegasi klik global — tidak perlu apa-apa */ };
 
