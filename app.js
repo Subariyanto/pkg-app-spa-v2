@@ -5056,7 +5056,7 @@ document.addEventListener('click', function (ev) {
 window.render = render;
 window.wireHashLinks = function () { /* sekarang pakai delegasi klik global — tidak perlu apa-apa */ };
 
-window.render = render;
+// (alih-alih pakai daftar statis di atas, biarkan satu definisi render)
 window.addEventListener('hashchange', render);
 window.addEventListener('DOMContentLoaded', async () => {
   renderShell();
