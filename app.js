@@ -5151,6 +5151,51 @@ if (!window.bootstrap.Modal) {
     };
     window.bootstrap.Modal.prototype = BModal.prototype;
   })();
+
+  // Data API: tombol ber-atribut data-bs-dismiss="modal" / data-bs-toggle="modal".
+  // Tanpa Bootstrap JS dari CDN, atribut ini tidak bereaksi → tombol Batal (X) mati.
+  function closestModal(el) {
+    while (el && el !== document.body) {
+      if (el.classList && el.classList.contains('modal')) return el;
+      el = el.parentNode;
+    }
+    return null;
+  }
+  document.addEventListener('click', function (ev) {
+    var t = ev.target;
+    if (!t || !t.closest) return;
+
+    var dismissBtn = t.closest('[data-bs-dismiss="modal"]');
+    if (dismissBtn) {
+      var mEl = closestModal(dismissBtn);
+      if (mEl) {
+        ev.preventDefault();
+        var inst = window.bootstrap.Modal.getInstance(mEl);
+        if (inst) inst.hide();
+        else {
+          mEl.classList.remove('show');
+          mEl.style.display = 'none';
+          var bd = document.querySelector('.modal-backdrop');
+          while (bd) { bd.parentNode.removeChild(bd); bd = document.querySelector('.modal-backdrop'); }
+          document.body.classList.remove('modal-open');
+        }
+      }
+      return;
+    }
+
+    var toggleBtn = t.closest('[data-bs-toggle="modal"]');
+    if (toggleBtn) {
+      var sel = toggleBtn.getAttribute('data-bs-target');
+      if (sel) {
+        var target = document.querySelector(sel);
+        if (target) {
+          ev.preventDefault();
+          var mi = window.bootstrap.Modal.getInstance(target) || new window.bootstrap.Modal(target);
+          mi.show();
+        }
+      }
+    }
+  }, true);
 }
 
 window.render = render;
