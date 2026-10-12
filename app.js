@@ -5260,6 +5260,7 @@ function viewKelolaAktivasi(view) {
         <button id="btn-buat-1" class="btn btn-sm btn-primary" ' + (state.creating ? 'disabled' : '') + '><i class="bi bi-plus-circle"></i> Buat 1 Kode</button>\
         <button id="btn-buat-5" class="btn btn-sm btn-primary" ' + (state.creating ? 'disabled' : '') + '><i class="bi bi-plus-circle"></i> Buat 5 Kode</button>\
         <button id="btn-buat-10" class="btn btn-sm btn-primary" ' + (state.creating ? 'disabled' : '') + '><i class="bi bi-plus-circle"></i> Buat 10 Kode</button>\
+        <button id="btn-buat-custom" class="btn btn-sm btn-primary" ' + (state.creating ? 'disabled' : '') + '><i class="bi bi-list-ol"></i> Buat Beberapa Kode</button>\
         <button id="btn-refresh" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i> Refresh</button>\
         <button id="btn-export-xlsx" class="btn btn-sm btn-success"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>\
         <button id="btn-hapus-semua" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash3"></i> Hapus Semua Kode</button>\
@@ -5668,7 +5669,8 @@ function viewKelolaAktivasi(view) {
     body.innerHTML = html;
   }
 
-  function showCreateModal(jumlah) {
+  function showCreateModal(jumlah, allowEdit) {
+    allowEdit = !!allowEdit;
     // Remove any existing modal
     var old = document.getElementById('modal-buat-kode');
     if (old) old.remove();
@@ -5677,7 +5679,7 @@ function viewKelolaAktivasi(view) {
       '<div class="modal-dialog modal-dialog-centered">' +
       '<div class="modal-content">' +
       '<div class="modal-header bg-primary text-white">' +
-      '<h5 class="modal-title"><i class="bi bi-plus-circle"></i> Buat ' + jumlah + ' Kode Aktivasi</h5>' +
+      '<h5 class="modal-title"><i class="bi bi-plus-circle"></i> Buat ' + (allowEdit ? 'Beberapa' : jumlah) + ' Kode Aktivasi</h5>' +
       '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>' +
       '</div>' +
       '<div class="modal-body">' +
@@ -5706,7 +5708,13 @@ function viewKelolaAktivasi(view) {
       '<label class="form-label fw-bold">Catatan <span class="text-muted small">(opsional)</span></label>' +
       '<textarea class="form-control" id="buat-catatan" rows="2" placeholder="Catatan internal"></textarea>' +
       '</div>' +
-      '<input type="hidden" id="buat-jumlah" value="' + jumlah + '">' +
+      (allowEdit
+        ? '<div class="mb-3">' +
+          '<label class="form-label fw-bold">Jumlah Kode <span class="text-danger">*</span></label>' +
+          '<input type="number" class="form-control" id="buat-jumlah" value="' + jumlah + '" min="1" max="100" step="1" required>' +
+          '<div class="form-text">Masukkan jumlah kode yang akan dibuat (1–100).</div>' +
+          '</div>'
+        : '<input type="hidden" id="buat-jumlah" value="' + jumlah + '">') +
       '</form>' +
       '</div>' +
       '<div class="modal-footer">' +
@@ -5734,6 +5742,11 @@ function viewKelolaAktivasi(view) {
       var role = document.getElementById('buat-role').value;
       var catatan = document.getElementById('buat-catatan').value.trim();
       var jumlah = parseInt(document.getElementById('buat-jumlah').value, 10);
+
+      if (allowEdit && (!jumlah || jumlah < 1 || jumlah > 100 || isNaN(jumlah))) {
+        toast('Jumlah kode harus antara 1 sampai 100.', 'warning');
+        return;
+      }
 
       // Role opsional: kalau Admin tidak memilih, pengguna mengisi sendiri saat aktivasi.
 
@@ -5934,6 +5947,12 @@ function viewKelolaAktivasi(view) {
     if (btnBuat10) btnBuat10.addEventListener('click', function () {
       if (state.creating) return;
       showCreateModal(10);
+    });
+
+    var btnBuatCustom = document.getElementById('btn-buat-custom');
+    if (btnBuatCustom) btnBuatCustom.addEventListener('click', function () {
+      if (state.creating) return;
+      showCreateModal(5, true);
     });
 
     var btnRefresh = document.getElementById('btn-refresh');
