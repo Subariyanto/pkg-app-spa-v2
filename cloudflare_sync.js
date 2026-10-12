@@ -231,6 +231,16 @@
     });
   }
 
+  // --- FORGOT PASSWORD (self-service) ---
+  // Verifikasi memakai kode aktivasi akun (1 kode = 1 akun).
+  async function resetPasswordByCode(username, code, newPassword) {
+    return postJson('reset-password-code', {
+      username: username,
+      code: code,
+      new_password: newPassword
+    });
+  }
+
   // --- CODE DETAILS (auto-isi & kunci identitas saat aktivasi) ---
   async function codeDetails(code) {
     return getJson('code-details?code=' + encodeURIComponent(code));
@@ -276,6 +286,7 @@
     activateAccount: activateAccount,
     claimAccount: claimAccount,
     loginAccount: loginAccount,
+    resetPasswordByCode: resetPasswordByCode,
     adminListAccounts: adminListAccounts,
     adminResetPassword: adminResetPassword,
     adminEditAccount: adminEditAccount,

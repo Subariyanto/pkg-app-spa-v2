@@ -317,6 +317,38 @@ export default {
         }, 200, headers);
       }
 
+      // --- FORGOT PASSWORD (self-service: verifikasi pakai kode aktivasi akun) ---
+      // POST /reset-password-code { username, code, new_password }
+      // Tanpa email, jadi verifikasi memakai KODE AKTIVASI yang sudah dipegang pemilik akun
+      // (1 kode = 1 akun, jadi kode ini terikat ke akun tersebut).
+      if (path === 'reset-password-code' && request.method === 'POST') {
+        const rl = await rateLimit(env, 'resetpw:' + clientIp(request), 10, 300);
+        if (!rl.ok) return json({ ok: false, message: 'Terlalu banyak percobaan. Coba lagi nanti.' }, 429, headers);
+
+        const body = await request.json();
+        const { username, code, new_password } = body;
+        if (!username || !code || !new_password) {
+          return json({ ok: false, message: 'Username, kode aktivasi, dan password baru wajib diisi' }, 400, headers);
+        }
+        const userL = String(username).trim().toLowerCase();
+        const codeU = String(code).trim().toUpperCase();
+        if (!CODE_RE.test(codeU)) return json({ ok: false, status: 'INVALID_CODE', message: 'Format kode aktivasi tidak valid' }, 400, headers);
+        if (String(new_password).length < 6) return json({ ok: false, message: 'Password minimal 6 karakter' }, 400, headers);
+
+        const acc = await env.DB.prepare('SELECT id, code, revoked FROM pkg_accounts WHERE username = ?').bind(userL).first();
+        if (!acc) return json({ ok: false, status: 'NO_ACCOUNT', message: 'Akun tidak ditemukan. Periksa username Anda.' }, 404, headers);
+        if (acc.revoked) return json({ ok: false, status: 'REVOKED', message: 'Akun ini diblokir Admin. Hubungi Admin.' }, 403, headers);
+        if (String(acc.code || '').toUpperCase() !== codeU) {
+          return json({ ok: false, status: 'WRONG_CODE', message: 'Kode aktivasi tidak cocok dengan akun ini.' }, 401, headers);
+        }
+
+        const salt = randomSalt();
+        const ph = await hashPassword(String(new_password), salt);
+        await env.DB.prepare('UPDATE pkg_accounts SET password_hash = ?, password_salt = ?, updated_at = ? WHERE id = ?')
+          .bind(ph, salt, new Date().toISOString(), acc.id).run();
+        return json({ ok: true, status: 'RESET_OK', message: 'Password berhasil diganti. Silakan login dengan password baru.' }, 200, headers);
+      }
+
       // --- CODE DETAILS (untuk auto-isi & kunci identitas saat aktivasi) ---
       // GET /code-details?code=***
       // Hanya mengembalikan identitas bila kode valid, belum dicabut, dan belum dipakai.

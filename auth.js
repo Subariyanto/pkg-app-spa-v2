@@ -752,6 +752,9 @@
           </div>\
         </div>\
         <button class="btn-auth-submit" id="btn-login">Masuk</button>\
+        <div style="text-align:center; margin-top:.6rem; font-size:.85rem;">\
+          <a id="link-forgot-pass" style="color:#1e40af; cursor:pointer; text-decoration:underline; font-weight:600;">Lupa Password?</a>\
+        </div>\
         <div style="text-align:center; margin-top:1rem; font-size:.85rem;">\
           <a id="link-to-activation" style="color:#14304f; cursor:pointer; text-decoration:none; font-weight:600;">Belum Punya Akun? Aktivasi di sini</a>\
         </div>\
@@ -867,8 +870,82 @@
       });
     }
 
+    // Form Lupa Password: verifikasi pakai KODE AKTIVASI akun (1 kode = 1 akun).
+    function showForgotForm() {
+      var box0 = document.getElementById('forgot-form-box');
+      if (box0) { box0.style.display = 'block'; return; }
+      var _err0 = document.getElementById('auth-login-err');
+      if (_err0) _err0.textContent = '';
+      var preUser = (userInput.value || localStorage.getItem(KEY_USER_USERNAME) || '').trim();
+      var box = document.createElement('div');
+      box.id = 'forgot-form-box';
+      box.style.cssText = 'background:#eef4ff;border:1px solid #b9d0f5;border-radius:10px;padding:.9rem;margin-bottom:1rem;';
+      box.innerHTML =
+        '<div style="font-weight:800;color:#14304f;font-size:.9rem;margin-bottom:.4rem;"><i class="bi bi-key"></i> Lupa Password</div>' +
+        '<div style="font-size:.78rem;color:#3b4a63;line-height:1.4;margin-bottom:.6rem;">Masukkan <b>username</b> dan <b>kode aktivasi</b> akun Anda, lalu buat password baru. Kode aktivasi adalah kode yang Anda pakai saat mendaftar (format PKG-XXXX-XXXX).</div>' +
+        '<div class="form-group" style="margin-bottom:.5rem;"><label>Username</label><input id="fp-username" type="text" placeholder="Username akun" value="' + escapeHtml(preUser) + '"></div>' +
+        '<div class="form-group" style="margin-bottom:.5rem;"><label>Kode Aktivasi</label><input id="fp-code" type="text" placeholder="PKG-XXXX-XXXX" style="text-transform:uppercase;"></div>' +
+        '<div class="form-group" style="margin-bottom:.5rem;"><label>Password Baru (min. 6 karakter)</label><div class="pw-wrap"><input id="fp-password" type="password" placeholder="Password baru"><button type="button" class="pw-toggle" data-target="fp-password" aria-label="Lihat password"><i class="bi bi-eye"></i></button></div></div>' +
+        '<div class="form-group" style="margin-bottom:.6rem;"><label>Ulangi Password Baru</label><input id="fp-confirm" type="password" placeholder="Ulangi password"></div>' +
+        '<div id="fp-status" style="font-size:.78rem;min-height:1.1rem;margin-bottom:.45rem;"></div>' +
+        '<button id="btn-fp-submit" class="btn-auth-submit" style="margin-top:0;">Simpan Password Baru</button>' +
+        '<div style="text-align:center;margin-top:.5rem;"><a id="fp-cancel" style="font-size:.8rem;color:#14304f;cursor:pointer;text-decoration:underline;">Batal</a></div>';
+      var firstFormGroup = overlay.querySelector('.form-group');
+      if (firstFormGroup && firstFormGroup.parentNode) firstFormGroup.parentNode.insertBefore(box, firstFormGroup);
+      box.querySelectorAll('.pw-toggle').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var inp = document.getElementById(b.getAttribute('data-target'));
+          if (!inp) return;
+          var show = inp.type === 'password';
+          inp.type = show ? 'text' : 'password';
+          var ic = b.querySelector('i'); if (ic) ic.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+        });
+      });
+      var stBox = document.getElementById('fp-status');
+      var btnSubmit = document.getElementById('btn-fp-submit');
+      var userEl = document.getElementById('fp-username');
+      var codeEl = document.getElementById('fp-code');
+      var pwdEl = document.getElementById('fp-password');
+      var confEl = document.getElementById('fp-confirm');
+      var cancelEl = document.getElementById('fp-cancel');
+      if (cancelEl) cancelEl.addEventListener('click', function () { box.remove(); });
+      btnSubmit.addEventListener('click', async function () {
+        var u = (userEl.value || '').trim().toLowerCase();
+        var c = (codeEl.value || '').trim().toUpperCase();
+        var p1 = pwdEl.value || '';
+        var p2 = confEl.value || '';
+        if (!u || !c) { stBox.style.color = '#c0392b'; stBox.textContent = 'Username dan kode aktivasi wajib diisi.'; return; }
+        if (p1.length < 6) { stBox.style.color = '#c0392b'; stBox.textContent = 'Password minimal 6 karakter.'; return; }
+        if (p1 !== p2) { stBox.style.color = '#c0392b'; stBox.textContent = 'Konfirmasi password tidak cocok.'; return; }
+        if (!window.SupabaseSync || !window.SupabaseSync.resetPasswordByCode) {
+          stBox.style.color = '#c0392b'; stBox.textContent = 'Aplikasi perlu dimuat ulang (versi lama). Tutup lalu buka kembali.';
+          return;
+        }
+        btnSubmit.disabled = true;
+        stBox.style.color = '#1e40af'; stBox.textContent = 'Menyimpan...';
+        var res = null;
+        try {
+          var timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, 10000); });
+          res = await Promise.race([window.SupabaseSync.resetPasswordByCode(u, c, p1), timeout]);
+        } catch (e) { res = null; }
+        if (res === null || res === undefined) {
+          btnSubmit.disabled = false;
+          stBox.style.color = '#c0392b'; stBox.textContent = 'Server tidak terjangkau. Periksa koneksi internet, lalu coba lagi.';
+          return;
+        }
+        if (res.ok) {
+          stBox.style.color = '#0a6832'; stBox.textContent = 'Berhasil! Password diganti. Silakan login dengan password baru.';
+          btnSubmit.textContent = 'Berhasil';
+          setTimeout(function () { box.remove(); }, 1600);
+          return;
+        }
+        btnSubmit.disabled = false;
+        stBox.style.color = '#c0392b';
+        stBox.textContent = res.message || 'Gagal mengganti password. Periksa data Anda.';
+      });
+    }
+
     if (legacyNeedsMigration()) {
-      var legacyBox = document.createElement('div');
       legacyBox.id = 'legacy-migrate-box';
       legacyBox.style.cssText = 'background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:.75rem .85rem;font-size:.82rem;color:#6b5300;margin-bottom:1rem;line-height:1.45;';
       legacyBox.innerHTML =
@@ -1080,6 +1157,14 @@
     passInput.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); doLogin(); }
     });
+
+    var linkForgot = document.getElementById('link-forgot-pass');
+    if (linkForgot) {
+      linkForgot.addEventListener('click', function (e) {
+        e.preventDefault();
+        showForgotForm();
+      });
+    }
 
     var linkAct = document.getElementById('link-to-activation');
     if (linkAct) {
