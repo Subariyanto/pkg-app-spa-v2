@@ -5030,6 +5030,39 @@ document.addEventListener('click', function (ev) {
   btn.setAttribute('aria-expanded', isShown ? 'false' : 'true');
 });
 
+// Toggle tab/pill secara lokal. Bootstrap CSS tetap dipakai, tetapi Bootstrap
+// JS sengaja tidak dijadikan dependency karena CDN sering diblokir di jaringan
+// madrasah. Tanpa handler ini, tombol tab terlihat normal namun tidak merespons.
+document.addEventListener('click', function (ev) {
+  var tab = ev.target.closest('[data-bs-toggle="tab"], [data-bs-toggle="pill"]');
+  if (!tab) return;
+  var selector = tab.getAttribute('data-bs-target') || tab.getAttribute('href');
+  if (!selector || selector.charAt(0) !== '#') return;
+
+  var target;
+  try { target = document.querySelector(selector); } catch (e) { return; }
+  if (!target) return;
+
+  ev.preventDefault();
+  var nav = tab.closest('.nav');
+  if (nav) {
+    nav.querySelectorAll('[data-bs-toggle="tab"], [data-bs-toggle="pill"]').forEach(function (item) {
+      item.classList.remove('active');
+      item.setAttribute('aria-selected', 'false');
+    });
+  }
+  tab.classList.add('active');
+  tab.setAttribute('aria-selected', 'true');
+
+  var content = target.closest('.tab-content');
+  if (content) {
+    content.querySelectorAll('.tab-pane').forEach(function (pane) {
+      pane.classList.remove('show', 'active');
+    });
+  }
+  target.classList.add('show', 'active');
+});
+
 // Navigasi hash (#/xxx) via delegasi klik — supaya semua link menu tetap jalan
 // walau Bootstrap JS tidak ada.
 document.addEventListener('click', function (ev) {
@@ -6423,4 +6456,3 @@ function showUpdateBanner() {
     location.reload();
   });
 }
-
