@@ -313,15 +313,8 @@
         \
         <div class="form-group">\
           <label>Nama Pengguna (Username untuk login)</label>\
-          <input id="reg-username" type="text" placeholder="Bebas, contoh: Subariyanto" autocomplete="off" minlength="3" maxlength="60">\
-          <div style="margin-top:.4rem; padding:.55rem .65rem; background:#eef4ff; border:1px solid #b9d0f5; border-left:4px solid #1e40af; border-radius:8px; font-size:.78rem; color:#2b3b52; line-height:1.5;">\
-            <div style="font-weight:800; color:#14304f; margin-bottom:.2rem;"><i class="bi bi-info-circle"></i> Ketentuan Username</div>\
-            &bull; Panjang <b>3&ndash;60 karakter</b>.<br>\
-            &bull; Boleh <b>huruf besar/kecil</b>, <b>angka</b>, <b>spasi</b>, <b>titik</b> (.), <b>garis bawah</b> (_), dan tanda baca lain.<br>\
-            &bull; Boleh memakai nama asli, misal: <i>Subariyanto</i>, <i>Kamad Sukowono</i>, atau <i>kepsek.mts1jember</i>.<br>\
-            &bull; <b>Huruf besar dan kecil dianggap sama</b> saat login (tidak membedakan).<br>\
-            &bull; Username <b>tidak bisa diubah</b> setelah akun dibuat &mdash; catat dan ingat baik-baik.\
-          </div>\
+          <input id="reg-username" type="text" placeholder="Contoh: kamad_sukowono" autocomplete="off" maxlength="60">\
+          <div id="reg-username-err" style="display:none; color:#c0392b; font-size:.8rem; margin-top:.3rem; line-height:1.35;"></div>\
         </div>\
         \
         <div class="form-group">\
@@ -525,9 +518,11 @@
       var errEl = document.getElementById('auth-reg-err');
       var infoEl = document.getElementById('auth-reg-info');
       var btn = document.getElementById('btn-reg-submit');
+      var unameEl = document.getElementById('reg-username');
+      var unameErrEl = document.getElementById('reg-username-err');
       var code = document.getElementById('reg-code').value.trim().toUpperCase();
       var role = document.getElementById('reg-role').value;
-      var username = document.getElementById('reg-username').value.trim().toLowerCase();
+      var username = unameEl.value.trim().toLowerCase();
       var fullname = document.getElementById('reg-fullname').value.trim();
       var madrasah = document.getElementById('reg-madrasah').value.trim();
       var kabupaten = document.getElementById('reg-kabupaten').value.trim();
@@ -537,7 +532,24 @@
       errEl.textContent = '';
       infoEl.textContent = '';
 
+      // Keterangan merah khusus di bawah kolom username.
+      function setUsernameError(msg) {
+        if (!unameErrEl) return;
+        if (msg) {
+          unameErrEl.textContent = msg;
+          unameErrEl.style.display = 'block';
+          unameEl.style.borderColor = '#c0392b';
+          unameEl.focus();
+        } else {
+          unameErrEl.textContent = '';
+          unameErrEl.style.display = 'none';
+          unameEl.style.borderColor = '';
+        }
+      }
+      setUsernameError('');
+
       if (!code || !username || !fullname || !madrasah || !password) {
+        if (!username) setUsernameError('Username wajib diisi.');
         errEl.textContent = 'Harap isi semua kolom yang wajib (kode, username, nama lengkap, nama madrasah, password)!';
         return;
       }
@@ -546,7 +558,13 @@
         return;
       }
       if (username.length < 3) {
+        setUsernameError('Username minimal 3 karakter.');
         errEl.textContent = 'Username minimal 3 karakter!';
+        return;
+      }
+      if (username.length > 60) {
+        setUsernameError('Username maksimal 60 karakter.');
+        errEl.textContent = 'Username maksimal 60 karakter!';
         return;
       }
       if (password.length < 6) {
