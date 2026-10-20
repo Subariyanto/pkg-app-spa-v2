@@ -120,7 +120,9 @@ function clientIp(request) {
 }
 
 const CODE_RE = /^PKG-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/;
-const USERNAME_RE = /^[a-z0-9_.]{4,32}$/;
+// Username kini BEBAS: huruf besar/kecil, spasi, titik, underscore, angka, @, -, dll.
+// Disimpan lowercase agar login tidak case-sensitive.
+const USERNAME_RE = /^.{3,60}$/su;
 
 export default {
   async fetch(request, env, ctx) {
@@ -172,7 +174,7 @@ export default {
         const codeU = String(code).trim().toUpperCase();
         const userL = String(username).trim().toLowerCase();
         if (!CODE_RE.test(codeU)) return json({ ok: false, message: 'Format kode aktivasi tidak valid' }, 400, headers);
-        if (!USERNAME_RE.test(userL)) return json({ ok: false, message: 'Username 4-32 karakter (huruf kecil/angka/titik/underscore)' }, 400, headers);
+        if (!USERNAME_RE.test(userL)) return json({ ok: false, message: 'Username 3-60 karakter (bebas: huruf, angka, spasi, tanda baca)' }, 400, headers);
         if (String(password).length < 6) return json({ ok: false, message: 'Password minimal 6 karakter' }, 400, headers);
 
         const row = await env.DB.prepare('SELECT * FROM pkg_activation_codes WHERE code = ?').bind(codeU).first();
@@ -275,7 +277,7 @@ export default {
         const codeU = String(code).trim().toUpperCase();
         const userL = String(username).trim().toLowerCase();
         if (!CODE_RE.test(codeU)) return json({ ok: false, message: 'Format kode aktivasi tidak valid' }, 400, headers);
-        if (!USERNAME_RE.test(userL)) return json({ ok: false, message: 'Username 4-32 karakter (huruf kecil/angka/titik/underscore)' }, 400, headers);
+        if (!USERNAME_RE.test(userL)) return json({ ok: false, message: 'Username 3-60 karakter (bebas: huruf, angka, spasi, tanda baca)' }, 400, headers);
         if (String(password).length < 6) return json({ ok: false, message: 'Password minimal 6 karakter' }, 400, headers);
 
         const row = await env.DB.prepare('SELECT * FROM pkg_activation_codes WHERE code = ?').bind(codeU).first();

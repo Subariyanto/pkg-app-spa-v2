@@ -313,7 +313,8 @@
         \
         <div class="form-group">\
           <label>Nama Pengguna (Username untuk login)</label>\
-          <input id="reg-username" type="text" placeholder="Contoh: kamad_sukowono" autocomplete="off" minlength="4">\
+          <input id="reg-username" type="text" placeholder="Bebas, contoh: Subariyanto" autocomplete="off" minlength="3" maxlength="60">\
+          <div style="font-size:.78rem; color:#5a6b85; margin-top:.3rem; line-height:1.35;">Bebas: huruf besar/kecil, angka, spasi, titik, garis bawah, tanda lain. Minimal 3 karakter.</div>\
         </div>\
         \
         <div class="form-group">\
@@ -537,8 +538,8 @@
         errEl.textContent = 'Format kode aktivasi tidak valid! Format: PKG-XXXX-XXXX';
         return;
       }
-      if (username.length < 4) {
-        errEl.textContent = 'Username minimal 4 karakter!';
+      if (username.length < 3) {
+        errEl.textContent = 'Username minimal 3 karakter!';
         return;
       }
       if (password.length < 6) {
