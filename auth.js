@@ -314,7 +314,14 @@
         <div class="form-group">\
           <label>Nama Pengguna (Username untuk login)</label>\
           <input id="reg-username" type="text" placeholder="Bebas, contoh: Subariyanto" autocomplete="off" minlength="3" maxlength="60">\
-          <div style="font-size:.78rem; color:#5a6b85; margin-top:.3rem; line-height:1.35;">Bebas: huruf besar/kecil, angka, spasi, titik, garis bawah, tanda lain. Minimal 3 karakter.</div>\
+          <div style="margin-top:.4rem; padding:.55rem .65rem; background:#eef4ff; border:1px solid #b9d0f5; border-left:4px solid #1e40af; border-radius:8px; font-size:.78rem; color:#2b3b52; line-height:1.5;">\
+            <div style="font-weight:800; color:#14304f; margin-bottom:.2rem;"><i class="bi bi-info-circle"></i> Ketentuan Username</div>\
+            &bull; Panjang <b>3&ndash;60 karakter</b>.<br>\
+            &bull; Boleh <b>huruf besar/kecil</b>, <b>angka</b>, <b>spasi</b>, <b>titik</b> (.), <b>garis bawah</b> (_), dan tanda baca lain.<br>\
+            &bull; Boleh memakai nama asli, misal: <i>Subariyanto</i>, <i>Kamad Sukowono</i>, atau <i>kepsek.mts1jember</i>.<br>\
+            &bull; <b>Huruf besar dan kecil dianggap sama</b> saat login (tidak membedakan).<br>\
+            &bull; Username <b>tidak bisa diubah</b> setelah akun dibuat &mdash; catat dan ingat baik-baik.\
+          </div>\
         </div>\
         \
         <div class="form-group">\
