@@ -5658,8 +5658,9 @@ function viewKelolaAktivasi(view) {
     <div class="card mb-3">\
       <div class="card-header d-flex gap-2 align-items-center flex-wrap">\
         <i class="bi bi-people"></i> <strong>Daftar Akun</strong> ' + (state.loadingAkun ? '<span class="spinner-border spinner-border-sm ms-2"></span>' : '') + '\
-        <div class="d-flex gap-2 ms-auto">\
+        <div class="d-flex gap-2 ms-auto align-items-center">\
           <input id="search-akun" type="text" class="form-control form-control-sm" placeholder="Cari username/nama/madrasah..." value="' + escapeHtml(state.searchAkun) + '" style="width:220px;">\
+          <button id="btn-export-akun-xlsx" class="btn btn-sm btn-success text-nowrap" title="Export daftar akun ke Excel"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>\
         </div>\
       </div>\
       <div class="card-body p-0">\
@@ -5762,6 +5763,71 @@ function viewKelolaAktivasi(view) {
       renderAkunPanel();
       var again = document.getElementById('search-akun');
       if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+    });
+
+    // --- EXPORT EXCEL DAFTAR AKUN ---
+    var btnExportAkun = document.getElementById('btn-export-akun-xlsx');
+    if (btnExportAkun) btnExportAkun.addEventListener('click', async function () {
+      var all = state.akun || [];
+      var q = (state.searchAkun || '').toLowerCase();
+      var rows = all.filter(function (a) {
+        return !q ||
+          (a.username && a.username.toLowerCase().indexOf(q) >= 0) ||
+          (a.nama && a.nama.toLowerCase().indexOf(q) >= 0) ||
+          (a.madrasah && a.madrasah.toLowerCase().indexOf(q) >= 0);
+      });
+      if (rows.length === 0) { toast('Tidak ada akun untuk diekspor.', 'warning'); return; }
+      if (typeof ExcelJS === 'undefined') { toast('Library Excel belum termuat, coba lagi sebentar.', 'danger'); return; }
+      btnExportAkun.disabled = true;
+      try {
+        var wb = new ExcelJS.Workbook();
+        var ws = wb.addWorksheet('Daftar Akun');
+        ws.columns = [
+          { header: 'No', key: 'no', width: 6 },
+          { header: 'Username', key: 'username', width: 22 },
+          { header: 'Nama', key: 'nama', width: 28 },
+          { header: 'Madrasah', key: 'madrasah', width: 32 },
+          { header: 'Kabupaten', key: 'kabupaten', width: 20 },
+          { header: 'Role', key: 'role', width: 18 },
+          { header: 'Status', key: 'status', width: 12 },
+          { header: 'Login Terakhir', key: 'last_login', width: 22 },
+          { header: 'Dibuat', key: 'created', width: 22 },
+          { header: 'Kode Aktivasi', key: 'code', width: 20 }
+        ];
+        rows.forEach(function (a, i) {
+          var roleText = a.role === 'pengawas' ? 'Pengawas' : (a.role === 'kamad' ? 'Kepala Madrasah' : (a.role || '-'));
+          ws.addRow({
+            no: i + 1,
+            username: a.username || '',
+            nama: a.nama || '',
+            madrasah: a.madrasah || '',
+            kabupaten: a.kabupaten || '',
+            role: roleText,
+            status: a.revoked ? 'Diblokir' : 'Aktif',
+            last_login: a.last_login_at ? new Date(a.last_login_at).toLocaleString('id-ID') : '-',
+            created: a.created_at ? new Date(a.created_at).toLocaleString('id-ID') : '-',
+            code: a.code || ''
+          });
+        });
+        ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+        ws.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+        ws.views = [{ state: 'frozen', ySplit: 1 }];
+        ws.autoFilter = { from: 'A1', to: 'J1' };
+        var buf = await wb.xlsx.writeBuffer();
+        var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'daftar-akun-pkg-' + new Date().toISOString().slice(0, 10) + '.xlsx';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast('Excel terdownload (' + rows.length + ' akun)');
+      } catch (err) {
+        console.error(err);
+        toast('Gagal export Excel: ' + err.message, 'danger');
+      } finally {
+        btnExportAkun.disabled = false;
+      }
     });
 
     // --- EDIT IDENTITAS AKUN ---
