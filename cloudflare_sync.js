@@ -9,7 +9,9 @@
   'use strict';
 
   // Ganti URL ini setelah deploy Worker
-  var WORKER_URL = 'https://pkg-backend.subariyantoss2.workers.dev';
+  // 29-10-2026: backend pindah dari Cloudflare Worker ke VPS EduSmartDigital (edge function pkg-api).
+  // Rollback: kembalikan ke 'https://pkg-backend.subariyantoss2.workers.dev'.
+  var WORKER_URL = 'https://api.pokjawasjember.com/functions/v1/pkg-api';
 
   var ADMIN_TOKEN_KEY = 'pkg_admin_token';
 
