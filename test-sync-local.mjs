@@ -64,6 +64,16 @@ const server = http.createServer(async (req, res) => {
     return jsonResp(res, 200, { ok: true, scope, size_bytes: size, updated_at: at });
   }
 
+  if (path === 'data-list' && req.method === 'GET') {
+    const rows = [];
+    for (const [k, v] of DATA) {
+      const [u, scope] = k.split('|');
+      if (u !== user) continue;
+      rows.push({ scope, periode: 0, checksum: v.checksum, size_bytes: v.size_bytes, updated_at: v.updated_at });
+    }
+    return jsonResp(res, 200, { ok: true, rows });
+  }
+
   if (path === 'data-get' && req.method === 'GET') {
     const only = url.searchParams.get('scope');
     const rows = [];

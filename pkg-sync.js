@@ -268,24 +268,67 @@
 
   // --- TARIK DARI SERVER ---
   // Mengembalikan { ok, applied, uploaded, errors, reason }
+  //
+  // Hemat kuota: kalau backend menyediakan data-list (ringan, tanpa payload),
+  // dipakai dulu untuk membandingkan checksum/waktu. Payload penuh hanya
+  // diambil untuk scope yang memang berubah. Tanpa ini setiap auto-sync
+  // menarik seluruh data (mis. logo 296 KB) tiap 3 menit.
   async function pullAll() {
     if (pulling) return pulling;              // anti tumpang tindih
     var c = client();
     if (!c || !ready()) return { ok: false, reason: 'not-ready', applied: 0, uploaded: 0 };
     pulling = (async function () {
-      var res = await c.dataGet(null);
-      if (!res || !res.ok) {
-        if (res && (res.status === 'SESSION_EXPIRED' || res.status === 'NO_SESSION')) {
-          notify({ ok: false, message: 'Sesi login berakhir — silakan login ulang', expired: true, at: Date.now() });
-        }
-        return { ok: false, reason: (res && res.status) || 'error', applied: 0, uploaded: 0 };
-      }
-      var rows = res.rows || [];
-      var byScope = {};
-      for (var i = 0; i < rows.length; i++) byScope[rows[i].scope] = rows[i];
-
       var meta = loadMeta();
       var applied = 0, uploaded = 0, errors = [], conflicts = [];
+      var byScope = {};
+      var fetchedFull = false;
+
+      // 1) Coba daftar ringan lebih dulu
+      var listRes = null;
+      if (typeof c.dataList === 'function') {
+        try { listRes = await c.dataList(); } catch (e) { listRes = null; }
+      }
+
+      if (listRes && listRes.ok && Array.isArray(listRes.rows)) {
+        for (var k = 0; k < listRes.rows.length; k++) {
+          var r0 = listRes.rows[k];
+          byScope[r0.scope] = {
+            scope: r0.scope, periode: r0.periode, checksum: r0.checksum,
+            size_bytes: r0.size_bytes, updated_at: r0.updated_at, payload: undefined
+          };
+        }
+      } else {
+        // Backend lama / data-list tidak tersedia → tarik semuanya sekaligus
+        var resAll = await c.dataGet(null);
+        if (!resAll || !resAll.ok) {
+          if (resAll && (resAll.status === 'SESSION_EXPIRED' || resAll.status === 'NO_SESSION')) {
+            notify({ ok: false, message: 'Sesi login berakhir — silakan login ulang', expired: true, at: Date.now() });
+          }
+          var whyAll = resAll && resAll.offline ? 'offline' : ((resAll && resAll.status) || 'error');
+          return { ok: false, reason: whyAll, message: (resAll && resAll.message) || '', applied: 0, uploaded: 0 };
+        }
+        var rowsAll = resAll.rows || [];
+        for (var i = 0; i < rowsAll.length; i++) byScope[rowsAll[i].scope] = rowsAll[i];
+        fetchedFull = true;
+      }
+
+      // Ambil payload satu scope sesuai kebutuhan
+      async function payloadOf(scope, row) {
+        if (row.payload !== undefined) return row.payload;
+        var one = await c.dataGet(scope);
+        if (!one || !one.ok) return undefined;
+        var rws = one.rows || [];
+        for (var z = 0; z < rws.length; z++) {
+          if (rws[z].scope === scope) {
+            row.payload = rws[z].payload;
+            if (rws[z].updated_at) row.updated_at = rws[z].updated_at;
+            if (rws[z].checksum) row.checksum = rws[z].checksum;
+            if (rws[z].size_bytes) row.size_bytes = rws[z].size_bytes;
+            return row.payload;
+          }
+        }
+        return undefined;
+      }
 
       for (var j = 0; j < SCOPES.length; j++) {
         var scope = SCOPES[j];
@@ -306,10 +349,12 @@
 
         // Perangkat ini belum punya scope tersebut → ambil dari server
         if (raw === null) {
-          if (writeLocalFromServer(scope, srv.payload)) {
+          var pNew = await payloadOf(scope, srv);
+          if (pNew === undefined) { errors.push(scope); continue; }
+          if (writeLocalFromServer(scope, pNew)) {
             meta[scope] = {
               updated_at: srv.updated_at || null,
-              local_checksum: hashVal(srv.payload),
+              local_checksum: hashVal(pNew),
               local_ts: 0,
               size: srv.size_bytes || 0
             };
@@ -318,9 +363,23 @@
           continue;
         }
 
+        // Cek cepat: server tidak berubah sejak sinkron terakhir dan tidak ada
+        // ubahan lokal baru → lewati tanpa mengunduh payload (hemat kuota).
+        var localTsQuick = Number(m.local_ts || 0);
+        var srvTsQuick = Date.parse(srv.updated_at || 0) || 0;
+        if (!fetchedFull && srv.payload === undefined && m.updated_at &&
+            String(m.updated_at) === String(srv.updated_at) &&
+            (!localTsQuick || localTsQuick <= srvTsQuick + 500)) {
+          delete pending[scope];
+          continue;
+        }
+
+        var pSrv = await payloadOf(scope, srv);
+        if (pSrv === undefined) { errors.push(scope); continue; }
+
         // Isi sama → tidak perlu apa-apa
         var localHash = hashVal(local);
-        var srvHash = hashVal(srv.payload);
+        var srvHash = hashVal(pSrv);
         if (localHash === srvHash) {
           meta[scope] = {
             updated_at: srv.updated_at || m.updated_at || null,
@@ -345,7 +404,7 @@
 
         // Server lebih baru (atau perangkat ini belum pernah sinkron scope ini)
         // → ambil server, tapi simpan dulu salinan lokal supaya tidak hilang.
-        if (writeLocalFromServer(scope, srv.payload)) {
+        if (writeLocalFromServer(scope, pSrv)) {
           meta[scope] = {
             updated_at: srv.updated_at || null,
             local_checksum: srvHash,
