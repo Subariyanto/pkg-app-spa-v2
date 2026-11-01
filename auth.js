@@ -475,7 +475,12 @@
       setLocked(fullnameInput, false);
       setLocked(madrasahInput, false);
       setLocked(kabupatenInput, false);
-      if (lockNote) lockNote.style.display = 'none';
+      if (lockNote) {
+        lockNote.style.display = 'none';
+        lockNote.style.background = '#eaf5ea';
+        lockNote.style.borderColor = '#b7dcb7';
+        lockNote.style.color = '#1e5c1e';
+      }
     }
 
     function clearCodeInfo() {
@@ -534,6 +539,24 @@
             lockNote.style.display = 'block';
           }
         } else {
+          // Kode TERKUNCI tapi madrasah belum diisi Admin -> nilai yang diketik
+          // pengguna akan DIBEKUKAN permanen saat aktivasi (lock-on-first-use).
+          if (res.freeze_pending) {
+            lock = { aktif: true, nama: false, madrasah: true, kabupaten: false };
+            setLocked(fullnameInput, false);
+            setLocked(madrasahInput, false);  // masih boleh diketik, tapi sekali saja
+            setLocked(kabupatenInput, false);
+            if (res.nama && fullnameInput && !fullnameInput.value.trim()) fullnameInput.value = res.nama;
+            if (lockNote) {
+              lockNote.innerHTML = '<i class="bi bi-lock-fill"></i> <b>Identitas akan dikunci.</b> ' +
+                'Nama madrasah yang Anda isi di bawah akan <b>dipakai permanen</b> dan tidak dapat diubah setelah aktivasi. Periksa ejaannya sebelum melanjutkan.';
+              lockNote.style.background = '#fff8e1';
+              lockNote.style.borderColor = '#ffe082';
+              lockNote.style.color = '#7a5b00';
+              lockNote.style.display = 'block';
+            }
+            if (madrasahInput) madrasahInput.title = 'Akan dikunci permanen setelah aktivasi';
+          }
           if (res.madrasah) {
             if (madrasahInput) madrasahInput.placeholder = res.madrasah;
             if (madrasahInput && !madrasahInput.value.trim()) madrasahInput.value = res.madrasah;
@@ -559,9 +582,11 @@
           codeInfoEl.style.color = '#14304f';
           codeInfoEl.innerHTML = '<i class="bi bi-check-circle"></i> Kode valid' +
             (res.nama ? ' ' + escapeHtml(res.nama) : '') +
-            (dikunci
-              ? '. Identitas sudah terkunci pada kode ini.'
-              : '. Identitas (nama/madrasah/kabupaten) silakan isi sendiri di bawah.');
+            (res.freeze_pending
+              ? '. Identitas akan dikunci pada madrasah yang Anda isi.'
+              : dikunci
+                ? '. Identitas sudah terkunci pada kode ini.'
+                : '. Identitas (nama/madrasah/kabupaten) silakan isi sendiri di bawah.');
         }
       } else {
         var st = (res && res.status) || '';

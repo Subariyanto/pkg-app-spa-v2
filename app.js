@@ -485,28 +485,38 @@ function viewKamadForm(view, editId) {
     view.innerHTML = '<div class="alert alert-warning">Kamad tidak ditemukan</div>';
     return;
   }
+  // Identitas dikunci Admin lewat kode aktivasi -> nama madrasah tidak boleh diubah.
+  const _ui = window.PKGAuth ? window.PKGAuth.getUserInfo() : {};
+  const idLock = !!_ui.identityLocked;
+  const userMad = String(_ui.madrasah || '').trim();
+  if (idLock && userMad) {
+    if (isNew) { k.nama_madrasah = userMad; }
+    else if (!(k.nama_madrasah || '').trim()) { k.nama_madrasah = userMad; }
+  }
   const field = (name, label, type, opts) => {
     opts = opts || {};
     const val = k[name] !== undefined && k[name] !== null ? k[name] : '';
+    const ro = opts.readonly ? ' readonly style="background:#f2f2f2;cursor:not-allowed" title="Terkunci — sesuai kode aktivasi"' : '';
     if (type === 'select') {
-      return `<label class="form-label">${label}</label><select class="form-select" name="${name}">
+      return `<label class="form-label">${label}</label><select class="form-select" name="${name}"${opts.readonly ? ' disabled' : ''}>
         <option value="">-</option>
         ${opts.options.map(o => `<option ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
       </select>`;
     }
     if (type === 'textarea') {
-      return `<label class="form-label">${label}</label><textarea class="form-control" name="${name}" rows="2">${e(val)}</textarea>`;
+      return `<label class="form-label">${label}</label><textarea class="form-control" name="${name}" rows="2"${opts.readonly ? ' readonly style="background:#f2f2f2"' : ''}>${e(val)}</textarea>`;
     }
-    return `<label class="form-label">${label}${opts.required ? ' *' : ''}</label><input type="${type || 'text'}" class="form-control" name="${name}" value="${e(val)}" ${opts.required ? 'required' : ''}>`;
+    return `<label class="form-label">${label}${opts.required ? ' *' : ''}</label><input type="${type || 'text'}" class="form-control" name="${name}" value="${e(val)}" ${opts.required ? 'required' : ''}${ro}>`;
   };
 
   view.innerHTML = `
   <h4 class="mb-3"><i class="bi bi-person-${isNew ? 'plus' : 'gear'}"></i> ${isNew ? 'Tambah' : 'Edit'} Data Kepala Madrasah</h4>
   <form id="form-kamad" class="card">
     <div class="card-body">
+      ${idLock ? '<div class="alert alert-secondary small py-2"><i class="bi bi-lock-fill"></i> <b>Identitas dikunci Admin.</b> Nama madrasah terikat pada kode aktivasi Anda dan tidak dapat diubah.</div>' : ''}
       <h6 class="text-muted text-uppercase small mb-3">Madrasah</h6>
       <div class="row g-3 mb-4">
-        <div class="col-md-8">${field('nama_madrasah', 'Nama Madrasah', 'text', { required: true })}</div>
+        <div class="col-md-8">${field('nama_madrasah', 'Nama Madrasah', 'text', { required: true, readonly: idLock })}</div>
         <div class="col-md-4">${field('jenjang', 'Jenjang', 'select', { options: ['RA', 'MI', 'MTs', 'MA', 'MAK'] })}</div>
         <div class="col-md-12">${field('alamat_madrasah', 'Alamat Madrasah', 'text')}</div>
         <div class="col-md-6">${field('kkm', 'KKM (Kelompok Kerja Madrasah)', 'text')}</div>
@@ -548,6 +558,8 @@ function viewKamadForm(view, editId) {
     const fd = new FormData(ev.target);
     const data = {};
     for (const [k2, v] of fd.entries()) data[k2] = v;
+    // Saat identitas dikunci, nama madrasah SELALU dari akun (bukan input form).
+    if (idLock && userMad) data.nama_madrasah = userMad;
     const row = PKGDB.saveKamad(data, isNew ? null : editId);
     toast(isNew ? 'Kamad ditambahkan' : 'Perubahan disimpan');
     navigate('/kamad/' + row.id);
@@ -804,12 +816,18 @@ async function importFlatXlsx(file, columns) {
 
 async function bulkImportGuru(rows) {
   const results = [];
+  // Import massal juga tidak boleh dipakai untuk memindah guru ke madrasah lain
+  // saat identitas dikunci Admin.
+  const _ui = window.PKGAuth ? window.PKGAuth.getUserInfo() : {};
+  const idLock = !!_ui.identityLocked;
+  const userMad = String(_ui.madrasah || '').trim();
   for (const r of rows) {
     try {
       if (!r.data.nama) {
         results.push({ row: r.rowNum, ok: false, error: 'Nama kosong' });
         continue;
       }
+      if (idLock && userMad) r.data.nama_madrasah = userMad;
       const existing = r.data.nip ? PKGDB.findGuruByNIP(r.data.nip) : null;
       const saved = PKGDB.saveGuru(r.data, existing ? existing.id : null);
       results.push({ row: r.rowNum, ok: true, action: existing ? 'update' : 'new', nama: saved.nama, id: saved.id });
@@ -823,8 +841,14 @@ async function bulkImportGuru(rows) {
 async function bulkImportKamad(rows) {
   const results = [];
   const existing = PKGDB.listKamad();
+  const _ui = window.PKGAuth ? window.PKGAuth.getUserInfo() : {};
+  const idLock = !!_ui.identityLocked;
+  const userMad = String(_ui.madrasah || '').trim();
   for (const r of rows) {
     try {
+      if (idLock && userMad) {
+        r.data.nama_madrasah = userMad;
+      }
       if (!r.data.nama_madrasah) {
         results.push({ row: r.rowNum, ok: false, error: 'Nama Madrasah kosong' });
         continue;
@@ -1024,17 +1048,26 @@ function viewGuruForm(view, editId) {
     view.innerHTML = '<div class="alert alert-warning">Guru tidak ditemukan</div>';
     return;
   }
+  // Identitas dikunci Admin -> nama madrasah pada data guru ikut terkunci.
+  const _ui = window.PKGAuth ? window.PKGAuth.getUserInfo() : {};
+  const idLock = !!_ui.identityLocked;
+  const userMad = String(_ui.madrasah || '').trim();
+  if (idLock && userMad) {
+    if (isNew) g.nama_madrasah = userMad;
+    else if (!(g.nama_madrasah || '').trim()) g.nama_madrasah = userMad;
+  }
 
   const field = (name, label, type, opts) => {
     opts = opts || {};
     const val = g[name] !== undefined && g[name] !== null ? g[name] : (opts.default || '');
+    const ro = opts.readonly ? ' readonly style="background:#f2f2f2;cursor:not-allowed" title="Terkunci — sesuai kode aktivasi"' : '';
     if (type === 'select') {
-      return `<label class="form-label">${label}</label><select class="form-select" name="${name}">
+      return `<label class="form-label">${label}</label><select class="form-select" name="${name}"${opts.readonly ? ' disabled' : ''}>
         <option value="">-</option>
         ${opts.options.map(o => `<option ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
       </select>`;
     }
-    return `<label class="form-label">${label}${opts.required ? ' *' : ''}</label><input type="${type || 'text'}" class="form-control" name="${name}" value="${e(val)}" ${opts.required ? 'required' : ''}>`;
+    return `<label class="form-label">${label}${opts.required ? ' *' : ''}</label><input type="${type || 'text'}" class="form-control" name="${name}" value="${e(val)}" ${opts.required ? 'required' : ''}${ro}>`;
   };
 
   view.innerHTML = `
@@ -1069,8 +1102,9 @@ function viewGuruForm(view, editId) {
       </div>
 
       <h6 class="text-muted text-uppercase small mb-3">Madrasah & Penilai</h6>
+      ${idLock ? '<div class="alert alert-secondary small py-2"><i class="bi bi-lock-fill"></i> <b>Madrasah dikunci Admin.</b> Semua data guru di akun ini berada pada madrasah yang sama.</div>' : ''}
       <div class="row g-3">
-        <div class="col-md-8">${field('nama_madrasah', 'Nama Madrasah', 'text')}</div>
+        <div class="col-md-8">${field('nama_madrasah', 'Nama Madrasah', 'text', { readonly: idLock })}</div>
         <div class="col-md-4">${field('jenjang', 'Jenjang', 'select', { options: ['RA', 'MI', 'MTs', 'MA', 'MAK'] })}</div>
         <div class="col-md-4">${field('tahun_pelajaran', 'Tahun Pelajaran', 'text', { default: '2025/2026' })}</div>
         <div class="col-md-9">${field('alamat_madrasah', 'Alamat Madrasah', 'text')}</div>
@@ -1095,6 +1129,8 @@ function viewGuruForm(view, editId) {
     const fd = new FormData(ev.target);
     const data = {};
     for (const [k, v] of fd.entries()) data[k] = v;
+    // Saat identitas dikunci, nama madrasah guru SELALU dari akun.
+    if (idLock && userMad) data.nama_madrasah = userMad;
     const row = PKGDB.saveGuru(data, isNew ? null : editId);
     toast(isNew ? 'Guru ditambahkan' : 'Perubahan disimpan');
     navigate('/guru/' + row.id);
