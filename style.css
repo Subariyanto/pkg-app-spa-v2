@@ -259,6 +259,11 @@ a:hover { color: var(--pkg-primary-dark); }
 .save-status-saving { color: #888; }
 .save-status-error { color: var(--pkg-danger); }
 
+/* Tombol sinkron di navbar — ikon berputar saat proses berjalan */
+@keyframes pkg-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+#nav-sync-icon.spin { display: inline-block; animation: pkg-spin .9s linear infinite; }
+#nav-sync-btn:disabled { opacity: .7; }
+
 /* Loading */
 .spinner-overlay {
   position: fixed;

@@ -177,6 +177,7 @@ function renderShell() {
             </ul>
           </li>
         </ul>
+        ${renderNavSyncButton()}
         ${renderNavPeriodeSelector()}
       </div>
     </div>
@@ -206,7 +207,88 @@ function renderNavPeriodeSelector() {
   </div>`;
 }
 
+function renderNavSyncButton() {
+  // Tombol sinkronisasi manual + indikator status (dipakai kalau auto-sync lambat/gagal)
+  return `
+  <div class="d-flex align-items-center me-2" id="nav-sync-wrap">
+    <button type="button" class="btn btn-sm btn-outline-light" id="nav-sync-btn" title="Kirim & tarik data penilaian dari server">
+      <i class="bi bi-arrow-repeat" id="nav-sync-icon"></i> <span id="nav-sync-label" class="d-none d-xl-inline">Sinkron</span>
+    </button>
+  </div>`;
+}
+
+function wireNavSyncButton() {
+  const btn = document.getElementById('nav-sync-btn');
+  if (!btn) return;
+  const label = () => document.getElementById('nav-sync-label');
+
+  function paint(st) {
+    if (!st) return;
+    const el = document.getElementById('nav-sync-label');
+    if (st.ok === true && st.message) {
+      btn.classList.remove('btn-outline-light', 'btn-outline-warning');
+      btn.classList.add('btn-outline-light');
+      if (el) el.textContent = 'Sinkron';
+    } else if (st.ok === false) {
+      btn.classList.remove('btn-outline-light');
+      btn.classList.add('btn-outline-warning');
+      if (el) el.textContent = st.expired ? 'Login ulang' : 'Tertunda';
+    }
+  }
+
+  if (window.PKGSync && window.PKGSync.addListener) window.PKGSync.addListener(paint);
+  paint(window.PKGSync ? window.PKGSync.status() : null);
+
+  btn.addEventListener('click', async (ev) => {
+    ev.preventDefault();
+    if (!window.PKGSync) { toast('Sinkronisasi belum siap, muat ulang aplikasi', 'danger'); return; }
+    const icon = document.getElementById('nav-sync-icon');
+    btn.disabled = true;
+    if (icon) icon.classList.add('spin');
+    try {
+      // Kirim dulu yang tertunda, lalu tarik data terbaru dari server
+      try { await window.PKGSync.flush(); } catch (e) {}
+      const r = await window.PKGSync.autoPull({ force: true });
+      if (!r || r.ok === false) {
+        if (r && r.reason === 'not-ready') {
+          toast('Belum login atau jaringan bermasalah', 'danger');
+        } else {
+          toast('Gagal sinkron: ' + ((r && r.reason) || 'tidak diketahui'), 'danger');
+        }
+      } else if (r.applied > 0) {
+        toast(`${r.applied} bagian ditarik dari server, tampilan dimuat ulang`);
+        const shell = document.querySelector('nav.navbar');
+        if (shell) shell.remove();
+        renderShell();
+        wireNavPeriodeSelector();
+        wireNavSyncButton();
+        render();
+      } else if (r.uploaded > 0) {
+        toast(`${r.uploaded} bagian terkirim ke server`);
+      } else {
+        toast('Data sudah paling baru');
+      }
+    } catch (e) {
+      toast('Gagal sinkron: ' + (e.message || e), 'danger');
+    } finally {
+      btn.disabled = false;
+      if (icon) icon.classList.remove('spin');
+    }
+  });
+
+  // Tarik data otomatis selesai → segarkan tampilan sekali saja
+  if (!window.__pkgSyncAppliedWired) {
+    window.__pkgSyncAppliedWired = true;
+    window.addEventListener('pkg-sync-applied', (ev) => {
+      if (!ev.detail || !ev.detail.applied) return;
+      try { render(); } catch (e) {}
+    });
+  }
+}
+
 function wireNavPeriodeSelector() {
+  // tombol sinkron selalu ikut dipasang setiap shell digambar ulang
+  wireNavSyncButton();
   const sel = document.getElementById('nav-periode-select');
   if (!sel) return;
   sel.addEventListener('change', () => {
