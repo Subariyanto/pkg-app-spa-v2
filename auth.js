@@ -1114,6 +1114,15 @@
         localStorage.setItem(KEY_ACCOUNT_VERIFIED, String(Date.now()));
         localStorage.setItem(KEY_LOGGED_IN, 'true');
         var ov = document.getElementById('pkg-auth-overlay');
+        // Tarik data dari server SEBELUM overlay ditutup, supaya data perangkat
+        // baru sudah tampil saat aplikasi terbuka. Dibatasi 6 detik agar tidak
+        // menggantung saat jaringan lambat.
+        try {
+          await Promise.race([
+            pullServerData(),
+            new Promise(function (res2) { setTimeout(res2, 6000); })
+          ]);
+        } catch (e) {}
         if (ov) ov.remove();
         if (typeof window.render === 'function') window.render();
         return;
@@ -1149,6 +1158,22 @@
       localStorage.setItem(KEY_USER_MADRASAH, acc.madrasah || '');
       localStorage.setItem(KEY_USER_KABUPATEN, acc.kabupaten || '');
       localStorage.setItem(KEY_USER_ROLE, acc.role || '');
+    }
+
+    // Setelah login berhasil: tarik data penilaian dari server.
+    // Perangkat baru -> data muncul. Perangkat lama yang punya data lokal tapi
+    // server kosong -> data lokal otomatis diunggah (migrasi tanpa export manual).
+    async function pullServerData() {
+      if (!window.PKGSync) return;
+      try {
+        var r = await window.PKGSync.pullAll();
+        if (r && (r.applied > 0)) {
+          // Data berubah dari server -> muat ulang tampilan agar angka ikut segar
+          try { if (typeof window.render === 'function') window.render(); } catch (e) {}
+        }
+      } catch (e) {
+        console.warn('Sinkronisasi data gagal:', e);
+      }
     }
 
     // (Dihapus) tryLocalAdminLogin — login offline admin sudah tidak diizinkan.
@@ -1707,6 +1732,8 @@
   }
 
   function logout() {
+    // Kirim dulu sisa data yang belum tersimpan ke server (best effort, tidak menunggu)
+    try { if (window.PKGSync) window.PKGSync.flush(); } catch (e) {}
     // Kalau trial user, hapus state trial supaya tidak auto-login ulang
     if (isTrial()) {
       if (!confirm('Keluar dari mode Trial?\n\nAnda akan kembali ke halaman aktivasi.\nData PKG yang sudah diinput tetap tersimpan di browser.')) return;
@@ -1716,6 +1743,8 @@
       return;
     }
     localStorage.removeItem(KEY_LOGGED_IN);
+    // Token sesi akun ikut dicabut agar tidak bisa dipakai setelah logout
+    try { if (window.SupabaseSync && window.SupabaseSync.logoutAccount) window.SupabaseSync.logoutAccount(); } catch (e) {}
     lock();
     location.reload();
   }

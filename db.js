@@ -30,9 +30,21 @@ function load(key, def) {
   }
 }
 
+// Peta key localStorage -> nama scope sinkronisasi server
+const SYNC_SCOPE_BY_KEY = {};
+Object.keys(KEYS).forEach(function (k) { SYNC_SCOPE_BY_KEY[KEYS[k]] = k; });
+
 function save(key, val) {
   try {
     localStorage.setItem(key, JSON.stringify(val));
+    // Beri tahu lapisan sinkronisasi (pkg-sync.js) bahwa scope ini berubah.
+    // Listener tidak ada / offline -> tidak berpengaruh apa pun.
+    try {
+      const scope = SYNC_SCOPE_BY_KEY[key];
+      if (scope) {
+        window.dispatchEvent(new CustomEvent('pkg-local-save', { detail: { scope: scope, key: key } }));
+      }
+    } catch (e2) {}
     return true;
   } catch (e) {
     console.error('localStorage save error:', key, e);

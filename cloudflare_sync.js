@@ -14,6 +14,8 @@
   var WORKER_URL = 'https://api.pokjawasjember.com/functions/v1/pkg-api';
 
   var ADMIN_TOKEN_KEY = 'pkg_admin_token';
+  // 1 Nov 2026: token sesi AKUN (bukan admin) untuk sinkronisasi data penilaian.
+  var ACCOUNT_TOKEN_KEY = 'pkg_account_token';
 
   // Flag: true kalau panggilan API terakhir ditolak 401 (sesi admin mati/kedaluwarsa)
   var lastAuthExpired = false;
@@ -32,6 +34,68 @@
     var t = getToken();
     if (t) h['X-Admin-Token'] = t;
     return h;
+  }
+
+  // Header untuk route data-* (pakai token AKUN, bukan token admin)
+  function accHeaders() {
+    var h = { 'Content-Type': 'application/json' };
+    var t = getAccountToken();
+    if (t) h['X-Account-Token'] = t;
+    return h;
+  }
+
+  function getAccountToken() {
+    try { return localStorage.getItem(ACCOUNT_TOKEN_KEY) || ''; } catch (e) { return ''; }
+  }
+  function setAccountToken(t) {
+    try {
+      if (t) localStorage.setItem(ACCOUNT_TOKEN_KEY, t);
+      else localStorage.removeItem(ACCOUNT_TOKEN_KEY);
+    } catch (e) {}
+  }
+  function hasAccountToken() { return !!getAccountToken(); }
+
+  // Simpan token dari respons login/aktivasi akun
+  function captureAccountToken(result) {
+    if (result && result.ok && result.token) setAccountToken(result.token);
+    return result;
+  }
+
+  // Panggilan data-* (POST)
+  async function postData(path, params) {
+    if (!hasConfig()) return { ok: false, message: 'Server belum dikonfigurasi' };
+    if (!hasAccountToken()) return { ok: false, status: 'NO_SESSION', message: 'Belum login' };
+    try {
+      var r = await fetch(WORKER_URL + '/' + path, {
+        method: 'POST', headers: accHeaders(), body: JSON.stringify(params || {})
+      });
+      if (r.status === 401) {
+        setAccountToken('');
+        return { ok: false, status: 'SESSION_EXPIRED', message: 'Sesi kedaluwarsa' };
+      }
+      var ct = r.headers.get('content-type') || '';
+      if (ct.indexOf('application/json') >= 0) return await r.json();
+      return { ok: false, message: await r.text() };
+    } catch (e) {
+      return { ok: false, offline: true, message: 'Gagal terhubung ke server.' };
+    }
+  }
+
+  async function getData(path) {
+    if (!hasConfig()) return { ok: false, message: 'Server belum dikonfigurasi' };
+    if (!hasAccountToken()) return { ok: false, status: 'NO_SESSION', message: 'Belum login' };
+    try {
+      var r = await fetch(WORKER_URL + '/' + path, { method: 'GET', headers: accHeaders() });
+      if (r.status === 401) {
+        setAccountToken('');
+        return { ok: false, status: 'SESSION_EXPIRED', message: 'Sesi kedaluwarsa' };
+      }
+      var ct = r.headers.get('content-type') || '';
+      if (ct.indexOf('application/json') >= 0) return await r.json();
+      return { ok: false, message: await r.text() };
+    } catch (e) {
+      return { ok: false, offline: true, message: 'Gagal terhubung ke server.' };
+    }
   }
 
   async function postJson(path, params) {
@@ -193,7 +257,7 @@
   // parameter di sini hanya fallback bila kode tidak memuatnya.
   // Mengembalikan objek: { ok, status, account, message }
   async function activateAccount(code, username, password, deviceId, deviceInfo, nama, madrasah, kabupaten, role) {
-    return postJson('activate-account', {
+    return captureAccountToken(await postJson('activate-account', {
       code: code,
       username: username,
       password: password,
@@ -203,18 +267,18 @@
       madrasah: madrasah || null,
       kabupaten: kabupaten || null,
       role: role || null
-    });
+    }));
   }
 
   // --- LOGIN ACCOUNT (user side) — wajib online, akun bisa dari perangkat mana pun ---
   // Mengembalikan objek: { ok, status, account, message }
   async function loginAccount(username, password, deviceId, deviceInfo) {
-    return postJson('login-account', {
+    return captureAccountToken(await postJson('login-account', {
       username: username,
       password: password,
       device_id: deviceId,
       user_agent: deviceInfo || ''
-    });
+    }));
   }
 
   // --- ADMIN: AKUN ---
@@ -235,7 +299,7 @@
   // --- CLAIM ACCOUNT (migrasi akun lama 1-kode-1-perangkat → 1-kode-1-akun) ---
   // Hanya berhasil jika dijalankan di PERANGKAT yang dulu mengaktivasi kode tsb.
   async function claimAccount(code, username, password, deviceId, deviceInfo, nama, madrasah, kabupaten, role) {
-    return postJson('claim-account', {
+    return captureAccountToken(await postJson('claim-account', {
       code: code,
       username: username,
       password: password,
@@ -245,8 +309,25 @@
       madrasah: madrasah || null,
       kabupaten: kabupaten || null,
       role: role || null
+    }));
+  }
+
+  // --- DATA PENILAIAN (sinkronisasi per akun, butuh token sesi akun) ---
+  // scope = nama bagian data: guru, kamad, penilaian, skor, kehadiran, pkb, dst.
+  async function dataSet(scope, payload, periode, deviceId) {
+    return postData('data-set', {
+      scope: scope, payload: payload,
+      periode: periode || 0, device_id: deviceId || ''
     });
   }
+  async function dataGet(scope) {
+    return getData('data-get' + (scope ? '?scope=' + encodeURIComponent(scope) : ''));
+  }
+  async function dataList() { return getData('data-list'); }
+  async function dataDel(scope, periode) {
+    return postData('data-del', { scope: scope, periode: periode || 0 });
+  }
+  function logoutAccount() { setAccountToken(''); }
 
   // --- FORGOT PASSWORD (self-service) ---
   // Verifikasi memakai kode aktivasi akun (1 kode = 1 akun).
@@ -315,6 +396,15 @@
     // Lega­cy
     activateCode: activateCode,
     checkCodeStatus: checkCodeStatus,
-    codeDetails: codeDetails
+    codeDetails: codeDetails,
+    // Data penilaian (per akun)
+    dataSet: dataSet,
+    dataGet: dataGet,
+    dataList: dataList,
+    dataDel: dataDel,
+    hasAccountToken: hasAccountToken,
+    getAccountToken: getAccountToken,
+    setAccountToken: setAccountToken,
+    logoutAccount: logoutAccount
   };
 })();
