@@ -6126,22 +6126,25 @@ function viewKelolaAktivasi(view) {
       var success = 0;
       var fail = 0;
       var failMsg = '';
-      for (var i = 0; i < jumlah; i++) {
-        var result = await window.SupabaseSync.adminCreateCode(
-          nama || null,
-          madrasah || null,
-          kabupaten || null,
-          role || null,
-          catatan || null,
-          state.adminUsername
-        );
-        if (result && result.ok) {
-          results.push(result.code);
-          success++;
-        } else {
-          fail++;
-          if (result && result.message) failMsg = result.message;
-        }
+      // Bulk: 1 request untuk semua kode. Loop per-kode dulu kena rate limit
+      // nginx (auth_limit 3r/s burst 10) sehingga hanya ~22 dari 100 berhasil.
+      var bulk = await window.SupabaseSync.adminCreateCodes(
+        jumlah,
+        nama || null,
+        madrasah || null,
+        kabupaten || null,
+        role || null,
+        catatan || null
+      );
+      if (bulk && bulk.ok && Array.isArray(bulk.data)) {
+        bulk.data.forEach(function (row) {
+          results.push(row && row.code ? row.code : String(row));
+        });
+        success = results.length;
+      } else {
+        fail = jumlah;
+        if (bulk && bulk.message) failMsg = bulk.message;
+        else if (bulk && bulk.body && bulk.body.message) failMsg = bulk.body.message;
       }
 
       // Hide create modal

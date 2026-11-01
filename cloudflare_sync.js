@@ -105,6 +105,21 @@
     });
   }
 
+  // --- ADMIN CREATE CODES (BULK: 1 request -> N kode) ---
+  // Dipakai untuk terbitkan banyak kode sekaligus. Loop create-code per-kode
+  // kena rate limit nginx (auth_limit 3r/s burst 10) -> hanya ~22 dari 100
+  // yang berhasil. Endpoint bulk menghindari itu.
+  async function adminCreateCodes(jumlah, nama, madrasah, kabupaten, role, catatan) {
+    return postJson('admin/create-codes', {
+      jumlah: jumlah,
+      nama: nama || null,
+      madrasah: madrasah || null,
+      kabupaten: kabupaten || null,
+      role: role || null,
+      catatan: catatan || null
+    });
+  }
+
   // --- ADMIN LIST CODES ---
   async function adminListCodes(adminUsername) {
     var result = await getJson('admin/list-codes');
@@ -278,6 +293,7 @@
     adminLogin: adminLogin,
     adminLogout: adminLogout,
     adminCreateCode: adminCreateCode,
+    adminCreateCodes: adminCreateCodes,
     adminListCodes: adminListCodes,
     adminRevokeCode: adminRevokeCode,
     adminEditCode: adminEditCode,
