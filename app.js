@@ -98,17 +98,63 @@ function getNamaKabupaten(userInfo) {
   return 'Kabupaten/Kota';
 }
 
+// Identitas PEMBUAT APLIKASI — sengaja hardcode, BUKAN data pengguna.
+// Tidak boleh ikut berubah walau aplikasi dipakai di kabupaten lain,
+// karena ini identitas pencipta, bukan identitas instansi pemakai.
+const APP_AUTHOR = 'Subariyanto, S.Pd, M.Pd.I.';
+const APP_AUTHOR_JABATAN = 'Ketua Pokjawas Madrasah Kabupaten Jember';
+
+// Identitas pengguna yang diambil dari layar Aktivasi & Registrasi.
+// Sengaja TIDAK memakai getNamaKabupaten() yang bisa tertimpa isian
+// menu "Logo & Identitas" — di sini murni dari data akun saat aktivasi.
+function getIdentitasAktivasi(userInfo) {
+  const ui = userInfo || (window.PKGAuth ? window.PKGAuth.getUserInfo() : {}) || {};
+  const madrasah = String(ui.madrasah || '').trim();
+  const kabupaten = normalizeNamaKabupaten(ui.kabupaten);
+  return { madrasah, kabupaten };
+}
+
+// Teks di bawah nama pengguna pada hero beranda:
+// contoh "RA AL-HIDAYAH · Kabupaten Jember".
+function getHeroIdentityText(userInfo) {
+  const { madrasah, kabupaten } = getIdentitasAktivasi(userInfo);
+  const kabText = kabupaten ? `Kabupaten ${kabupaten}` : '';
+  if (madrasah && kabText) return `${madrasah} · ${kabText}`;
+  if (madrasah) return madrasah;
+  if (kabText) return kabText;
+  return '';
+}
+
+// HTML baris identitas di bawah nama pengguna pada hero beranda.
+// Prioritas: madrasah + kabupaten hasil Aktivasi/Registrasi. Bila akun belum
+// punya keduanya (mis. akun pengawas), baru tampilkan label peran seperti dulu.
+function renderHeroIdentityHTML(userInfo) {
+  const { madrasah, kabupaten } = getIdentitasAktivasi(userInfo);
+  if (madrasah || kabupaten) {
+    const parts = [];
+    if (madrasah) parts.push(e(madrasah));
+    if (kabupaten) parts.push(`Kabupaten ${e(kabupaten)}`);
+    return `<i class="bi bi-building"></i> <span data-role-context>${parts.join(' &middot; ')}</span>`;
+  }
+  const namaKabupaten = getNamaKabupaten(userInfo);
+  const roleLabel = { admin: 'Ketua Pokjawas', pengawas: 'Pengawas', kamad: 'Kepala Madrasah', trial: 'Trial' }[userInfo && userInfo.role] || (userInfo && userInfo.role) || '';
+  const isPengawas = userInfo && (userInfo.role === 'pengawas' || userInfo.role === 'admin');
+  const ctx = isPengawas ? `Pokjawas ${namaKabupaten}` : namaKabupaten;
+  return `<i class="bi bi-shield-check"></i> <span data-role-label>${e(roleLabel)}</span> &middot; <span data-role-context>${e(ctx)}</span>`;
+}
+
 // Perbarui tulisan "Pokjawas <Kabupaten>" dari data terbaru tanpa reload.
 // Dipanggil setelah menyimpan menu "Logo & Identitas".
 function refreshKabupatenUI() {
   try {
     const userInfo = window.PKGAuth ? window.PKGAuth.getUserInfo() : { role: 'kamad' };
     const namaKabupaten = getNamaKabupaten(userInfo);
-    const isPengawas = userInfo.role === 'pengawas' || userInfo.role === 'admin';
+    const heroIdentity = getHeroIdentityText(userInfo);
     const roleLabel = { admin: 'Ketua Pokjawas', pengawas: 'Pengawas', kamad: 'Kepala Madrasah', trial: 'Trial' }[userInfo.role] || userInfo.role;
-    const roleContext = isPengawas ? `Pokjawas ${namaKabupaten}` : (userInfo.madrasah || namaKabupaten);
     document.querySelectorAll('[data-role-label]').forEach(el => { el.textContent = roleLabel; });
-    document.querySelectorAll('[data-role-context]').forEach(el => { el.textContent = roleContext; });
+    if (heroIdentity) {
+      document.querySelectorAll('[data-role-context]').forEach(el => { el.textContent = heroIdentity; });
+    }
     document.querySelectorAll('[data-nama-kabupaten]').forEach(el => { el.textContent = namaKabupaten; });
   } catch (err) {
     console.warn('refreshKabupatenUI error:', err);
@@ -185,7 +231,7 @@ function renderShell() {
   <div class="container-fluid pb-5" id="view"></div>
   <footer class="text-center text-muted small py-3 no-print">
     Aplikasi PKG &middot; berbasis SK Dirjen Pendis No. 6673 Tahun 2019 &middot; disesuaikan dengan KMA No. 1503 Tahun 2025 (Kurikulum Berbasis Cinta &amp; Pembelajaran Mendalam)
-    <div class="mt-1">Aplikasi ini dibuat oleh : Subariyanto, S.Pd, M.Pd.I. Ketua Pokjawas Madrasah <span data-nama-kabupaten>${e(namaKabupaten)}</span></div>
+    <div class="mt-1">Aplikasi ini dibuat oleh : ${e(APP_AUTHOR)} ${e(APP_AUTHOR_JABATAN)}</div>
   </footer>`;
   document.body.insertAdjacentHTML('afterbegin', html);
 }
@@ -369,11 +415,8 @@ function viewBeranda(view) {
   const recent = PKGDB.getRecentGuru(8);
   const userInfo = window.PKGAuth ? window.PKGAuth.getUserInfo() : { fullname: '', madrasah: '', role: '' };
   const userName = userInfo.fullname || userInfo.username || 'Pengguna';
-  const namaKabupaten = getNamaKabupaten(userInfo);
-  const roleLabel = { admin: 'Ketua Pokjawas', pengawas: 'Pengawas', kamad: 'Kepala Madrasah', trial: 'Trial' }[userInfo.role] || userInfo.role;
-  const roleContext = userInfo.role === 'pengawas' || userInfo.role === 'admin'
-    ? `Pokjawas ${namaKabupaten}`
-    : (userInfo.madrasah || namaKabupaten);
+  // Di bawah nama pengguna: madrasah + kabupaten dari Aktivasi/Registrasi.
+  const heroIdentityHTML = renderHeroIdentityHTML(userInfo);
   const trialBanner = (window.PKGAuth && window.PKGAuth.isTrial && window.PKGAuth.isTrial()) ? (() => {
     const daysLeft = window.PKGAuth.getTrialDaysLeft();
     const expired = window.PKGAuth.isTrialExpired();
@@ -403,7 +446,7 @@ function viewBeranda(view) {
       <div class="beranda-hero-text">
         <div class="beranda-hero-greeting">${greeting},</div>
         <div class="beranda-hero-name">${e(userName)}</div>
-        <div class="beranda-hero-role" data-role-label="x" data-role-context="x" data-hero-role><i class="bi bi-shield-check"></i> <span data-role-label>${e(roleLabel)}</span> &middot; <span data-role-context>${e(roleContext)}</span></div>
+        <div class="beranda-hero-role" data-hero-role>${heroIdentityHTML}</div>
       </div>
       <div class="beranda-hero-emblem"><i class="bi bi-mortarboard-fill"></i></div>
     </div>
