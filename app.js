@@ -4482,6 +4482,12 @@ function viewIdentitasDokumen(view) {
   madrasahList.sort();
 
   const logos = PKGDB.getLogos();
+  const identLocked = !!(window.PKGAuth && window.PKGAuth.getUserInfo && window.PKGAuth.getUserInfo().identityLocked);
+  const userInfo = window.PKGAuth ? window.PKGAuth.getUserInfo() : {};
+  const lockAttr = identLocked ? ' readonly title="Ditetapkan Admin — tidak dapat diubah" style="background:#f2f2f2;cursor:not-allowed"' : '';
+  const lockBadge = identLocked
+    ? '<div class="alert alert-secondary small py-2 mb-3"><i class="bi bi-lock-fill"></i> <b>Identitas dikunci Admin.</b> Nama madrasah dan nama kepala madrasah terikat pada kode aktivasi Anda dan tidak dapat diubah di sini. Hubungi Admin bila ada kekeliruan.</div>'
+    : '';
   const logoSrc = (key) => {
     const v = logos[String(key || '')];
     return v ? v : null;
@@ -4540,15 +4546,16 @@ function viewIdentitasDokumen(view) {
   <div class="card">
     <div class="card-header"><i class="bi bi-fonts"></i> Identitas Tetap pada Dokumen (opsional)</div>
     <div class="card-body">
+      ${lockBadge}
       <div class="row g-3">
         <div class="col-md-6"><label class="form-label small">Kabupaten/Kota <span class="text-muted">(dipakai di beranda: "Pokjawas ..." & laporan)</span></label>
-          <input id="di-kabupaten" class="form-control form-control-sm" list="di-kabupaten-list" placeholder="Contoh: Kabupaten Jember" value="${e(ident.kabupaten || getKabupatenSumber(window.PKGAuth ? window.PKGAuth.getUserInfo() : {}))}">
+          <input id="di-kabupaten" class="form-control form-control-sm" list="di-kabupaten-list" placeholder="Contoh: Kabupaten Jember" value="${e(ident.kabupaten || getKabupatenSumber(window.PKGAuth ? window.PKGAuth.getUserInfo() : {}))}"${lockAttr}>
           <datalist id="di-kabupaten-list">${['Kabupaten Jember', 'Kota Jember', 'Kabupaten Lumajang', 'Kabupaten Bondowoso', 'Kabupaten Situbondo', 'Kabupaten Banyuwangi', 'Kabupaten Malang', 'Kota Malang', 'Kabupaten Probolinggo', 'Kabupaten Pasuruan'].map(k => `<option value="${e(k)}"></option>`).join('')}</datalist>
           <div class="text-tiny text-muted mt-1">Boleh ditulis "Kabupaten Lumajang" atau "Lumajang" — tampilannya otomatis diringkas.</div></div>
         <div class="col-md-6"><label class="form-label small">Baris Instansi Atas</label>
           <input id="di-instansi" class="form-control form-control-sm" value="${e(ident.instansi || ('KEMENTERIAN AGAMA ' + getNamaKabupaten(window.PKGAuth ? window.PKGAuth.getUserInfo() : {}).toUpperCase()))}"></div>
         <div class="col-md-6"><label class="form-label small">Nama Kepala Madrasah (default)</label>
-          <input id="di-nama-kamad" class="form-control form-control-sm" value="${e(ident.nama_kamad || '')}"></div>
+          <input id="di-nama-kamad" class="form-control form-control-sm" value="${e(ident.nama_kamad || (identLocked ? userInfo.fullname : '') || '')}"${lockAttr}></div>
         <div class="col-md-6"><label class="form-label small">NIP Kepala Madrasah (default)</label>
           <input id="di-nip-kamad" class="form-control form-control-sm" value="${e(ident.nip_kamad || '')}"></div>
         <div class="col-md-6"><label class="form-label small">Nama Pengawas Madrasah (default)</label>
@@ -4632,14 +4639,18 @@ function viewIdentitasDokumen(view) {
   const btnDi = document.getElementById('btn-di-save');
   if (btnDi) btnDi.addEventListener('click', () => {
     const kabEl = document.getElementById('di-kabupaten');
+    const prevIdent = PKGDB.getDokIdentitas() || {};
+    const identLockedNow = !!(window.PKGAuth && window.PKGAuth.getUserInfo && window.PKGAuth.getUserInfo().identityLocked);
+    const infoNow = window.PKGAuth ? window.PKGAuth.getUserInfo() : {};
     PKGDB.setDokIdentitas({
       instansi: document.getElementById('di-instansi').value.trim(),
-      nama_kamad: document.getElementById('di-nama-kamad').value.trim(),
+      // Saat identitas dikunci, nilai dari form diabaikan — pakai nilai server/lama.
+      nama_kamad: identLockedNow ? (infoNow.fullname || prevIdent.nama_kamad || '') : document.getElementById('di-nama-kamad').value.trim(),
       nip_kamad: document.getElementById('di-nip-kamad').value.trim(),
       nama_pengawas: document.getElementById('di-nama-pengawas').value.trim(),
     });
-    if (kabEl) PKGDB.setKabupatenTersimpan(kabEl.value.trim());
-    toast('Identitas disimpan');
+    if (kabEl && !identLockedNow) PKGDB.setKabupatenTersimpan(kabEl.value.trim());
+    toast(identLockedNow ? 'Identitas disimpan (nama & madrasah dikunci Admin)' : 'Identitas disimpan');
     // Perbarui tulisan "Pokjawas <Kabupaten>" di navbar/beranda tanpa reload.
     refreshKabupatenUI();
     viewIdentitasDokumen(view);
@@ -5592,10 +5603,13 @@ function viewKelolaAktivasi(view) {
         }
         var createdDate = k.created_at ? new Date(k.created_at).toLocaleString('id-ID') : '-';
         var roleText = k.role === 'pengawas' ? 'Pengawas' : (k.role === 'kamad' ? 'Kepala Madrasah' : (k.role || '-'));
+        var lockBadge = k.locked
+          ? ' <span class="badge bg-dark" title="Nama/madrasah terkunci pada kode ini"><i class="bi bi-lock-fill"></i> Kunci</span>'
+          : '';
         html += '<tr>\
           <td><code class="text-primary fw-bold">' + escapeHtml(k.code_full || k.code_hint || '?') + '</code></td>\
           <td>' + escapeHtml(k.nama_pengguna || '-') + '</td>\
-          <td>' + escapeHtml(k.madrasah || '-') + '</td>\
+          <td>' + escapeHtml(k.madrasah || '-') + lockBadge + '</td>\
           <td class="small">' + escapeHtml(k.kabupaten || '-') + '</td>\
           <td class="small">' + escapeHtml(roleText) + '</td>\
           <td>' + statusBadge + '</td>\
@@ -6052,7 +6066,7 @@ function viewKelolaAktivasi(view) {
       '<div class="modal-body">' +
       '<form id="form-buat-kode">' +
       '<div class="mb-3">' +
-      '<label class="form-label fw-bold">Nama Penerima <span class="text-muted small">(opsional)</span></label>' +
+      '<label class="form-label fw-bold">Nama Kepala Madrasah / Penerima <span class="text-muted small">(opsional)</span></label>' +
       '<input type="text" class="form-control" id="buat-nama" placeholder="Nama lengkap penerima kode">' +
       '</div>' +
       '<div class="mb-3">' +
@@ -6062,6 +6076,11 @@ function viewKelolaAktivasi(view) {
       '<div class="mb-3">' +
       '<label class="form-label fw-bold">Kabupaten/Kota <span class="text-muted small">(opsional)</span></label>' +
       '<input type="text" class="form-control" id="buat-kabupaten" placeholder="Contoh: Kabupaten Jember">' +
+      '</div>' +
+      '<div class="mb-3 form-check bg-light border rounded p-2 ps-4">' +
+      '<input class="form-check-input" type="checkbox" id="buat-lock" checked>' +
+      '<label class="form-check-label small fw-bold" for="buat-lock"><i class="bi bi-lock-fill text-dark"></i> Kunci identitas pada kode ini</label>' +
+      '<div class="form-text">Pengguna <b>tidak bisa mengubah</b> nama &amp; madrasah saat aktivasi. Aktif otomatis bila Nama Madrasah diisi (kecuali role Pengawas).</div>' +
       '</div>' +
       '<div class="mb-3">' +
       '<label class="form-label fw-bold">Role <span class="text-muted small">(opsional — pengguna boleh pilih sendiri)</span></label>' +
@@ -6109,6 +6128,14 @@ function viewKelolaAktivasi(view) {
       var role = document.getElementById('buat-role').value;
       var catatan = document.getElementById('buat-catatan').value.trim();
       var jumlah = parseInt(document.getElementById('buat-jumlah').value, 10);
+      var lockEl = document.getElementById('buat-lock');
+      var lockIdent = lockEl ? !!lockEl.checked : null;
+
+      // Kunci identitas tanpa nama madrasah = tidak ada yang dikunci -> tolak.
+      if (lockIdent === true && !madrasah) {
+        toast('Untuk mengunci identitas, isi dulu Nama Madrasah (dan sebaiknya Nama Kepala Madrasah).', 'warning');
+        return;
+      }
 
       if (allowEdit && (!jumlah || jumlah < 1 || jumlah > 100 || isNaN(jumlah))) {
         toast('Jumlah kode harus antara 1 sampai 100.', 'warning');
@@ -6134,7 +6161,8 @@ function viewKelolaAktivasi(view) {
         madrasah || null,
         kabupaten || null,
         role || null,
-        catatan || null
+        catatan || null,
+        lockIdent
       );
       if (bulk && bulk.ok && Array.isArray(bulk.data)) {
         bulk.data.forEach(function (row) {
@@ -6256,6 +6284,11 @@ function viewKelolaAktivasi(view) {
       '<div class="mb-2"><label class="form-label fw-bold">Kabupaten/Kota</label><input type="text" class="form-control" id="edit-kabupaten" value="' + escapeHtml(k.kabupaten || '') + '"></div>' +
       '<div class="mb-2"><label class="form-label fw-bold">Role</label><select class="form-select" id="edit-role"><option value="">-- Pilih Role --</option><option value="pengawas"' + (k.role === 'pengawas' ? ' selected' : '') + '>Pengawas - Pembina</option><option value="kamad"' + (k.role === 'kamad' ? ' selected' : '') + '>Kepala Madrasah (Kamad)</option></select></div>' +
       '<div class="mb-2"><label class="form-label fw-bold">Catatan</label><textarea class="form-control" id="edit-catatan" rows="2">' + escapeHtml(k.catatan || '') + '</textarea></div>' +
+      '<div class="mb-2 form-check bg-light border rounded p-2 ps-4">' +
+      '<input class="form-check-input" type="checkbox" id="edit-lock"' + (k.locked ? ' checked' : '') + '>' +
+      '<label class="form-check-label small fw-bold" for="edit-lock"><i class="bi bi-lock-fill text-dark"></i> Kunci identitas pada kode ini</label>' +
+      '<div class="form-text">Pengguna tidak bisa mengubah nama &amp; madrasah saat aktivasi. Butuh Nama Madrasah terisi.</div>' +
+      '</div>' +
       '</form>' +
       '</div>' +
       '<div class="modal-footer">' +
@@ -6280,11 +6313,18 @@ function viewKelolaAktivasi(view) {
       var kabupaten = document.getElementById('edit-kabupaten').value.trim();
       var role = document.getElementById('edit-role').value;
       var catatan = document.getElementById('edit-catatan').value.trim();
+      var lockEl = document.getElementById('edit-lock');
+      var lockIdent = lockEl ? !!lockEl.checked : null;
+
+      if (lockIdent === true && !madrasah) {
+        toast('Untuk mengunci identitas, isi dulu Nama Madrasah.', 'warning');
+        return;
+      }
 
       btnSubmit.disabled = true;
       btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
 
-      var result = await window.SupabaseSync.adminEditCode(k.id, state.adminUsername, nama, madrasah, kabupaten, role, catatan);
+      var result = await window.SupabaseSync.adminEditCode(k.id, state.adminUsername, nama, madrasah, kabupaten, role, catatan, lockIdent);
 
       if (result && result.ok) {
         toast('Kode diperbarui.', 'success');

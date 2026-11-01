@@ -159,13 +159,14 @@
   }
 
   // --- ADMIN CREATE CODE ---
-  async function adminCreateCode(nama, madrasah, kabupaten, role, catatan, adminUsername) {
+  async function adminCreateCode(nama, madrasah, kabupaten, role, catatan, adminUsername, lock) {
     return postJson('admin/create-code', {
       nama: nama || null,
       madrasah: madrasah || null,
       kabupaten: kabupaten || null,
       role: role || null,
-      catatan: catatan || null
+      catatan: catatan || null,
+      lock: (lock === true || lock === false) ? lock : null
     });
   }
 
@@ -173,14 +174,15 @@
   // Dipakai untuk terbitkan banyak kode sekaligus. Loop create-code per-kode
   // kena rate limit nginx (auth_limit 3r/s burst 10) -> hanya ~22 dari 100
   // yang berhasil. Endpoint bulk menghindari itu.
-  async function adminCreateCodes(jumlah, nama, madrasah, kabupaten, role, catatan) {
+  async function adminCreateCodes(jumlah, nama, madrasah, kabupaten, role, catatan, lock) {
     return postJson('admin/create-codes', {
       jumlah: jumlah,
       nama: nama || null,
       madrasah: madrasah || null,
       kabupaten: kabupaten || null,
       role: role || null,
-      catatan: catatan || null
+      catatan: catatan || null,
+      lock: (lock === true || lock === false) ? lock : null
     });
   }
 
@@ -203,6 +205,7 @@
           kabupaten: row.kabupaten || '',
           role: row.role || '',
           catatan: row.catatan || '',
+          locked: !!row.locked,
           status: status,
           device_id: row.device_id || '',
           created_at: row.created_at || '',
@@ -223,14 +226,15 @@
   }
 
   // --- ADMIN EDIT CODE ---
-  async function adminEditCode(codeId, adminUsername, nama, madrasah, kabupaten, role, catatan) {
+  async function adminEditCode(codeId, adminUsername, nama, madrasah, kabupaten, role, catatan, lock) {
     return postJson('admin/edit-code', {
       id: codeId,
       nama: nama || null,
       madrasah: madrasah || null,
       kabupaten: kabupaten || null,
       role: role || null,
-      catatan: catatan || null
+      catatan: catatan || null,
+      lock: (lock === true || lock === false) ? lock : null
     });
   }
 

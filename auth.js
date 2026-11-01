@@ -23,6 +23,9 @@
   var KEY_USER_FULLNAME = 'pkg_v1_user_fullname';
   var KEY_USER_MADRASAH = 'pkg_v1_user_madrasah';
   var KEY_USER_KABUPATEN = 'pkg_v1_user_kabupaten';
+  // '1' = identitas (nama madrasah & nama kepala madrasah) dikunci oleh Admin
+  // melalui kode aktivasi. Dipakai untuk mengunci kolom identitas di UI.
+  var KEY_IDENTITY_LOCKED = 'pkg_v1_identity_locked';
 
   var KEY_LOGGED_IN = 'pkg_v1_logged_in';
   var KEY_ACCOUNT_VERIFIED = 'pkg_v1_account_verified_at'; // kapan terakhir verifikasi akun ke server
@@ -167,7 +170,9 @@
       fullname: localStorage.getItem(KEY_USER_FULLNAME) || '',
       madrasah: localStorage.getItem(KEY_USER_MADRASAH) || '',
       kabupaten: localStorage.getItem(KEY_USER_KABUPATEN) || '',
-      deviceId: getDeviceId()
+      deviceId: getDeviceId(),
+      // true = nama madrasah & nama kepala madrasah dikunci Admin lewat kode aktivasi.
+      identityLocked: localStorage.getItem(KEY_IDENTITY_LOCKED) === '1'
     };
   }
 
@@ -318,18 +323,21 @@
         </div>\
         \
         <div class="form-group">\
-          <label>Nama Lengkap</label>\
+          <label id="reg-fullname-label">Nama Kepala Madrasah / Pengguna</label>\
           <input id="reg-fullname" type="text" placeholder="Nama Lengkap beserta gelar" autocomplete="off">\
         </div>\
         \
         <div class="form-group">\
-          <label>Nama Madrasah</label>\
+          <label id="reg-madrasah-label">Nama Madrasah</label>\
           <input id="reg-madrasah" type="text" placeholder="Contoh: MTs Negeri 1 Jember" autocomplete="organization">\
         </div>\
         \
         <div class="form-group">\
-          <label>Kabupaten/Kota Asal</label>\
+          <label id="reg-kabupaten-label">Kabupaten/Kota Asal</label>\
           <input id="reg-kabupaten" type="text" placeholder="Contoh: Kabupaten Jember" autocomplete="address-level2">\
+        </div>\
+        <div id="reg-lock-note" style="display:none; background:#eaf5ea; border:1px solid #b7dcb7; color:#1e5c1e; border-radius:8px; padding:.55rem .7rem; font-size:.8rem; line-height:1.4; margin-bottom:1rem;">\
+          <i class="bi bi-lock-fill"></i> <b>Identitas dikunci.</b> Nama madrasah dan nama kepala madrasah ditetapkan oleh Admin untuk kode ini dan tidak dapat diubah.\
         </div>\
         \
         <div class="form-group">\
@@ -439,12 +447,43 @@
     var codeInfoEl = document.getElementById('reg-code-info');
     var madrasahInput = document.getElementById('reg-madrasah');
     var kabupatenInput = document.getElementById('reg-kabupaten');
+    var fullnameInput = document.getElementById('reg-fullname');
+    var lockNote = document.getElementById('reg-lock-note');
     var lastCheckedCode = '';
+    // Flag identitas terkunci (dari server). Kosong = tidak dikunci.
+    var lock = { aktif: false, nama: false, madrasah: false, kabupaten: false };
+
+    // Kunci/buka satu kolom identitas supaya tidak bisa diubah pengguna.
+    function setLocked(el, locked) {
+      if (!el) return;
+      if (locked) {
+        if (!el.dataset.lockedStyle) el.dataset.lockedStyle = el.style.cssText || '';
+        el.readOnly = true;
+        el.style.background = '#f2f2f2';
+        el.style.cursor = 'not-allowed';
+        el.title = 'Ditetapkan Admin — tidak dapat diubah';
+      } else {
+        el.readOnly = false;
+        el.style.background = '';
+        el.style.cursor = '';
+        el.title = '';
+      }
+    }
+
+    function resetLocks() {
+      lock = { aktif: false, nama: false, madrasah: false, kabupaten: false };
+      setLocked(fullnameInput, false);
+      setLocked(madrasahInput, false);
+      setLocked(kabupatenInput, false);
+      if (lockNote) lockNote.style.display = 'none';
+    }
 
     function clearCodeInfo() {
       if (codeInfoEl) { codeInfoEl.textContent = ''; codeInfoEl.style.color = ''; }
       if (madrasahInput) { madrasahInput.value = ''; }
       if (kabupatenInput) { kabupatenInput.value = ''; }
+      if (fullnameInput) { fullnameInput.value = ''; }
+      resetLocks();
       lastCheckedCode = '';
     }
 
@@ -468,15 +507,42 @@
       }
       var res = await window.SupabaseSync.codeDetails(code);
       if (res && res.ok) {
-        // Identitas DIISI PENGGUNA. Data dari kode (kalau admin mengisinya) hanya
-        // dipakai sebagai prefill dan TIDAK menimpa apa pun yang sudah ditulis pengguna.
-        if (res.madrasah) {
-          if (madrasahInput) madrasahInput.placeholder = res.madrasah;
-          if (madrasahInput && !madrasahInput.value.trim()) madrasahInput.value = res.madrasah;
-        }
-        if (res.kabupaten) {
-          if (kabupatenInput) kabupatenInput.placeholder = res.kabupaten;
-          if (kabupatenInput && !kabupatenInput.value.trim()) kabupatenInput.value = res.kabupaten;
+        // Identitas TERKUNCI: nilai dari kode (server) menggantikan input pengguna,
+        // kolom dijadikan readonly. Selama tidak dikunci, data kode hanya prefill.
+        var dikunci = !!res.locked;
+        resetLocks();
+        if (dikunci) {
+          lock = {
+            aktif: true,
+            nama: !!res.lock_nama,
+            madrasah: !!res.lock_madrasah,
+            kabupaten: !!res.lock_kabupaten
+          };
+          if (lock.nama && res.nama && fullnameInput) fullnameInput.value = res.nama;
+          if (lock.madrasah && res.madrasah && madrasahInput) madrasahInput.value = res.madrasah;
+          if (lock.kabupaten && res.kabupaten && kabupatenInput) kabupatenInput.value = res.kabupaten;
+          setLocked(fullnameInput, lock.nama);
+          setLocked(madrasahInput, lock.madrasah);
+          setLocked(kabupatenInput, lock.kabupaten);
+          if (lockNote) {
+            var kunciTxt = [];
+            if (lock.madrasah && res.madrasah) kunciTxt.push('madrasah <b>' + escapeHtml(res.madrasah) + '</b>');
+            if (lock.nama && res.nama) kunciTxt.push('nama <b>' + escapeHtml(res.nama) + '</b>');
+            lockNote.innerHTML = '<i class="bi bi-lock-fill"></i> <b>Identitas dikunci.</b> ' +
+              (kunciTxt.length ? 'Kode ini terikat pada ' + kunciTxt.join(' dan ') + '. ' : '') +
+              'Nilai tersebut ditetapkan Admin dan tidak dapat diubah.';
+            lockNote.style.display = 'block';
+          }
+        } else {
+          if (res.madrasah) {
+            if (madrasahInput) madrasahInput.placeholder = res.madrasah;
+            if (madrasahInput && !madrasahInput.value.trim()) madrasahInput.value = res.madrasah;
+          }
+          if (res.kabupaten) {
+            if (kabupatenInput) kabupatenInput.placeholder = res.kabupaten;
+            if (kabupatenInput && !kabupatenInput.value.trim()) kabupatenInput.value = res.kabupaten;
+          }
+          if (res.nama && fullnameInput && !fullnameInput.value.trim()) fullnameInput.value = res.nama;
         }
         if (res.role && roleSel) {
           var hasRole = false;
@@ -493,7 +559,9 @@
           codeInfoEl.style.color = '#14304f';
           codeInfoEl.innerHTML = '<i class="bi bi-check-circle"></i> Kode valid' +
             (res.nama ? ' ' + escapeHtml(res.nama) : '') +
-            '. Identitas (nama/madrasah/kabupaten) silakan isi sendiri di bawah.';
+            (dikunci
+              ? '. Identitas sudah terkunci pada kode ini.'
+              : '. Identitas (nama/madrasah/kabupaten) silakan isi sendiri di bawah.');
         }
       } else {
         var st = (res && res.status) || '';
@@ -658,6 +726,7 @@
         localStorage.setItem(KEY_USER_FULLNAME, acc.nama || fullname);
         localStorage.setItem(KEY_USER_MADRASAH, acc.madrasah || madrasah);
         localStorage.setItem(KEY_USER_KABUPATEN, acc.kabupaten || kabupaten);
+        if (result.identity_locked === true) localStorage.setItem(KEY_IDENTITY_LOCKED, '1');
         localStorage.setItem(KEY_ACCOUNT_VERIFIED, String(Date.now()));
 
         alert('Akun berhasil dibuat!\n\nUsername: ' + (acc.username || username) +
@@ -675,6 +744,8 @@
           errEl.textContent = msg || 'Username sudah dipakai. Pilih username lain.';
         } else if (st === 'REVOKED') {
           errEl.textContent = 'Kode aktivasi telah dicabut (revoke) oleh Admin.';
+        } else if (st === 'IDENTITY_LOCKED') {
+          errEl.textContent = msg || 'Kode ini terkunci untuk satu madrasah. Hubungi Admin bila datanya keliru.';
         } else {
           errEl.textContent = 'Gagal aktivasi: ' + (msg || 'kesalahan tidak diketahui') + '. Cek koneksi internet.';
         }
@@ -1158,6 +1229,11 @@
       localStorage.setItem(KEY_USER_MADRASAH, acc.madrasah || '');
       localStorage.setItem(KEY_USER_KABUPATEN, acc.kabupaten || '');
       localStorage.setItem(KEY_USER_ROLE, acc.role || '');
+      if (acc.identity_locked === true) {
+        localStorage.setItem(KEY_IDENTITY_LOCKED, '1');
+      } else if (acc.identity_locked === false) {
+        localStorage.removeItem(KEY_IDENTITY_LOCKED);
+      }
     }
 
     // Setelah login berhasil: tarik data penilaian dari server.
