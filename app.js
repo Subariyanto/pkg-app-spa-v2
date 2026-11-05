@@ -4722,6 +4722,26 @@ function viewIdentitasDokumen(view) {
         <div class="col-md-6"><label class="form-label small">Nama Pengawas Madrasah (default)</label>
           <input id="di-nama-pengawas" class="form-control form-control-sm" value="${e(ident.nama_pengawas || '')}"></div>
       </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header"><i class="bi bi-person-vcard"></i> Ketua Pokjawas pada Laporan KKM</div>
+    <div class="card-body">
+      <p class="text-muted small mb-3">Bagian <strong>"Mengetahui"</strong> di Laporan KKM (HTML &amp; DOCX) memakai data di bawah ini. Aplikasi ini dipakai lintas kabupaten &mdash; sesuaikan bila Pokjawas Anda berbeda.</p>
+      <div class="row g-3">
+        <div class="col-md-6"><label class="form-label small">Nama Ketua Pokjawas</label>
+          <input id="di-nama-ketua" class="form-control form-control-sm" placeholder="Contoh: H. AHMAD FAUZI, S.Pd., M.Pd." value="${e(ident.nama_ketua || '')}"></div>
+        <div class="col-md-6"><label class="form-label small">NIP Ketua Pokjawas</label>
+          <input id="di-nip-ketua" class="form-control form-control-sm" placeholder="Contoh: 197002122005011004" value="${e(ident.nip_ketua || '')}"></div>
+        <div class="col-md-6"><label class="form-label small">Jabatan</label>
+          <input id="di-jabatan-ketua" class="form-control form-control-sm" placeholder="Ketua Pokjawas Madrasah" value="${e(ident.jabatan_ketua || '')}"></div>
+        <div class="col-md-6"><label class="form-label small">Kota Penandatanganan</label>
+          <input id="di-kota-ttd" class="form-control form-control-sm" placeholder="mengikuti kabupaten/kota" value="${e(ident.kota_ttd || '')}"></div>
+      </div>
+      <div class="alert alert-secondary small py-2 mt-3 mb-0">
+        <i class="bi bi-lightbulb"></i> Dikosongkan = kembali ke default bawaan aplikasi. Nilai ini juga ikut tersimpan di Backup/Restore.
+      </div>
       <button id="btn-di-save" class="btn btn-sm btn-primary mt-3"><i class="bi bi-check-lg"></i> Simpan Identitas</button>
     </div>
   </div>`;
@@ -4808,6 +4828,10 @@ function viewIdentitasDokumen(view) {
       // Saat identitas dikunci, nilai dari form diabaikan — pakai nilai server/lama.
       nama_kamad: identLockedNow ? (infoNow.fullname || prevIdent.nama_kamad || '') : document.getElementById('di-nama-kamad').value.trim(),
       nip_kamad: document.getElementById('di-nip-kamad').value.trim(),
+      nama_ketua: document.getElementById('di-nama-ketua').value.trim(),
+      nip_ketua: document.getElementById('di-nip-ketua').value.trim(),
+      jabatan_ketua: document.getElementById('di-jabatan-ketua').value.trim(),
+      kota_ttd: document.getElementById('di-kota-ttd').value.trim(),
       nama_pengawas: document.getElementById('di-nama-pengawas').value.trim(),
     });
     if (kabEl && !identLockedNow) PKGDB.setKabupatenTersimpan(kabEl.value.trim());

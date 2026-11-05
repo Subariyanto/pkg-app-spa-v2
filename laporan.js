@@ -6,10 +6,42 @@
   'use strict';
 
   // === KONFIG TETAP ====================================================
-  const POKJAWAS = {
+  // Default bawaan; bisa ditimpa lewat menu "Logo & Identitas" (per kabupaten).
+  const POKJAWAS_DEFAULT = {
     nama: 'SUBARIYANTO, S.Pd, M.Pd.I.',
     nip: '197002122005011004',
     jabatan: 'Ketua Pokjawas Madrasah',
+  };
+
+  function _ketuaCfg() {
+    try {
+      if (window.PKGDB && window.PKGDB.getKetuaPokjawas) return window.PKGDB.getKetuaPokjawas() || {};
+    } catch (err) {}
+    return {};
+  }
+
+  // opts (opsional) = override dari form generator (menang atas config).
+  function dataKetua(opts) {
+    const cfg = _ketuaCfg();
+    const ov = opts || {};
+    const pick = (ovKey, cfgVal, def) => {
+      const v = ov[ovKey];
+      if (v !== undefined && v !== null && String(v).trim()) return String(v).trim();
+      if (cfgVal !== undefined && cfgVal !== null && String(cfgVal).trim()) return String(cfgVal).trim();
+      return def;
+    };
+    return {
+      nama: pick('nama_ketua', cfg.nama, POKJAWAS_DEFAULT.nama),
+      nip: pick('nip_ketua', cfg.nip, POKJAWAS_DEFAULT.nip),
+      jabatan: pick('jabatan_ketua', cfg.jabatan, POKJAWAS_DEFAULT.jabatan),
+      kota: pick('kota', cfg.kota, namaKotaTtd()),
+    };
+  }
+
+  const POKJAWAS = {
+    get nama() { return dataKetua().nama; },
+    get nip() { return dataKetua().nip; },
+    get jabatan() { return dataKetua().jabatan; },
     // Getter: mengikuti data isian user (kabupaten), bukan hardcode "Kabupaten Jember".
     get wilayah() { return namaWilayahKabupaten(); },
   };
@@ -415,8 +447,9 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
   }
 
   function renderPengesahanKKM(opts) {
-    // opts: { nama_kkm, nama_pengawas, nip_pengawas, kota, tanggal }
+    // opts: { nama_kkm, nama_pengawas, nip_pengawas, kota, tanggal, nama_ketua, nip_ketua, jabatan_ketua }
     const tgl = opts.tanggal || fmtTanggalID(new Date());
+    const _ket = dataKetua(opts);
     return `<div class="page-break"></div>
     <h2 style="text-align:center; letter-spacing:2px;">HALAMAN PENGESAHAN</h2>
     <p style="text-align:center; margin-top:1em;">Laporan Penilaian Kinerja Guru (PKG)<br>
@@ -426,14 +459,14 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
     <table style="width:100%; margin-top:2em; border:0;"><tr>
       <td style="width:50%; vertical-align:top; text-align:center; line-height:1.4;">
         <div>Mengetahui,</div>
-        <div><strong>Ketua Pokjawas Madrasah</strong></div>
+        <div><strong>${e(_ket.jabatan)}</strong></div>
         <div>${e(KEMENAG.kabupaten)}</div>
         <div style="height:90px;"></div>
-        <div style="margin:0;"><strong><u>${e(POKJAWAS.nama)}</u></strong></div>
-        <div style="margin:0;">NIP. ${e(POKJAWAS.nip)}</div>
+        <div style="margin:0;"><strong><u>${e(_ket.nama)}</u></strong></div>
+        <div style="margin:0;">NIP. ${e(_ket.nip)}</div>
       </td>
       <td style="width:50%; vertical-align:top; text-align:center; line-height:1.4;">
-        <div>${e(opts.kota || namaKotaTtd())}, ${e(tgl)}</div>
+        <div>${e(opts.kota || _ket.kota || namaKotaTtd())}, ${e(tgl)}</div>
         <div><strong>Pengawas Madrasah</strong></div>
         <div>&nbsp;</div>
         <div style="height:90px;"></div>
@@ -697,6 +730,9 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
       nip_pengawas: opts.nip_pengawas,
       kota: opts.kota || namaKotaTtd(),
       tanggal: opts.tanggal,
+      nama_ketua: opts.nama_ketua,
+      nip_ketua: opts.nip_ketua,
+      jabatan_ketua: opts.jabatan_ketua,
     });
     const profilKKM = `
       <table class="tbl">
@@ -950,10 +986,11 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
          `${(opts.kamad && opts.kamad.nama) || opts.nama_kamad || '....................'}\nNIP. ${(opts.kamad && opts.kamad.nip) || opts.nip_kamad || '....................'}`],
       ];
     } else {
+      const _ketD = dataKetua(opts);
       pengesahanRows = [
-        [`Mengetahui,\nKetua Pokjawas Madrasah\n${KEMENAG.kabupaten}`, 'Pengawas Madrasah'],
+        [`Mengetahui,\n${_ketD.jabatan}\n${KEMENAG.kabupaten}`, 'Pengawas Madrasah'],
         ['', ''], ['', ''], ['', ''],
-        [`${POKJAWAS.nama}\nNIP. ${POKJAWAS.nip}`,
+        [`${_ketD.nama}\nNIP. ${_ketD.nip}`,
          `${opts.nama_pengawas || '....................'}\nNIP. ${opts.nip_pengawas || '....................'}`],
       ];
     }
@@ -1308,6 +1345,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
     if (!scopeValue) { view.innerHTML = `<div class="alert alert-danger">KKM tidak dipilih. <a href="#/laporan-kkm">Kembali</a></div>`; return; }
     const data = getPenilaianGuruAtScope('kkm', scopeValue);
     const _identK = (window.PKGDB.getDokIdentitas && window.PKGDB.getDokIdentitas()) || {};
+    const _ketV = dataKetua({});
     const _logoAdaK = !!(window.PKGDB.getLogo && (window.PKGDB.getLogo(scopeValue) || window.PKGDB.getLogo('')));
 
     view.innerHTML = `
@@ -1325,8 +1363,13 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
           <div class="card-header"><i class="bi bi-person-vcard"></i> Identitas Penanda Tangan</div>
           <div class="card-body">
             <div class="alert alert-success py-2 small mb-3">
-              <i class="bi bi-check2-circle"></i> Mengetahui: <strong>${e(POKJAWAS.nama)}</strong> (NIP. ${e(POKJAWAS.nip)}), Ketua Pokjawas Madrasah ${e(KEMENAG.kabupaten)} (otomatis dari konfigurasi).
+              <i class="bi bi-check2-circle"></i> Mengetahui: <strong id="id-alert-nama">${e(_ketV.nama)}</strong> (NIP. <span id="id-alert-nip">${e(_ketV.nip)}</span>), ${e(_ketV.jabatan)} ${e(KEMENAG.kabupaten)}. Diatur di menu <a href="#/identitas-dokumen" class="alert-link">Logo &amp; Identitas</a>.
             </div>
+            <div class="mb-2"><label class="form-label small">Nama Ketua Pokjawas</label>
+              <input id="f-nama-ketua" class="form-control form-control-sm" value="${e(_ketV.nama)}"></div>
+            <div class="mb-2"><label class="form-label small">NIP Ketua Pokjawas</label>
+              <input id="f-nip-ketua" class="form-control form-control-sm" value="${e(_ketV.nip)}"></div>
+            <hr class="my-2">
             <div class="mb-2"><label class="form-label small">Nama Pengawas Madrasah</label>
               <input id="f-nama-peng" class="form-control form-control-sm" value="${e(_identK.nama_pengawas || '')}"></div>
             <div class="mb-2"><label class="form-label small">NIP Pengawas Madrasah</label>
@@ -1371,11 +1414,28 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
     </div>`;
 
     const getOpts = () => ({
+      nama_ketua: document.getElementById('f-nama-ketua').value.trim(),
+      nip_ketua: document.getElementById('f-nip-ketua').value.trim(),
+      jabatan_ketua: _ketV.jabatan,
       nama_pengawas: document.getElementById('f-nama-peng').value.trim(),
       nip_pengawas: document.getElementById('f-nip-peng').value.trim(),
       wilayah: document.getElementById('f-wilayah').value.trim(),
       kota: document.getElementById('f-kota').value.trim(),
       tanggal: document.getElementById('f-tanggal').value.trim(),
+    });
+
+    // Sinkronkan keterangan hijau saat nama/NIP Ketua Pokjawas diedit.
+    const _syncKetua = () => {
+      const nm = document.getElementById('f-nama-ketua');
+      const np = document.getElementById('f-nip-ketua');
+      const el1 = document.getElementById('id-alert-nama');
+      const el2 = document.getElementById('id-alert-nip');
+      if (el1) el1.textContent = (nm && nm.value.trim()) || '(belum diisi)';
+      if (el2) el2.textContent = (np && np.value.trim()) || '-';
+    };
+    ['f-nama-ketua', 'f-nip-ketua'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', _syncKetua);
     });
 
     document.getElementById('btn-html').addEventListener('click', () => {
@@ -1394,7 +1454,7 @@ Laporan ini disusun sebagai dokumentasi resmi pelaksanaan PKG pada ${obj} untuk 
   // === EXPOSE ========================================================
   window.PKGLaporan = window.PKGLaporan || {};
   Object.assign(window.PKGLaporan, {
-    POKJAWAS, KEMENAG, LANDASAN_HUKUM_DEFAULT,
+    POKJAWAS, KEMENAG, LANDASAN_HUKUM_DEFAULT, dataKetua,
     namaWilayahKabupaten, namaKotaTtd,
     fmtTanggalID, tahunAkademik, semesterAktif, sebutanByNilai,
     getPenilaianGuruAtScope, computeRataKompetensi,

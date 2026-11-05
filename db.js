@@ -1019,6 +1019,28 @@ function getKabupatenTersimpan() {
   return String(ident.kabupaten || '').trim();
 }
 
+// Nama/NIP/jabatan Ketua Pokjawas pada dokumen (bisa berbeda tiap kabupaten).
+// Kosong = pakai default bawaan aplikasi.
+function getKetuaPokjawas() {
+  const ident = getDokIdentitas();
+  return {
+    nama: String(ident.nama_ketua || '').trim(),
+    nip: String(ident.nip_ketua || '').trim(),
+    jabatan: String(ident.jabatan_ketua || '').trim(),
+    kota: String(ident.kota_ttd || '').trim(),
+  };
+}
+
+function setKetuaPokjawas(fields) {
+  const f = fields || {};
+  return setDokIdentitas({
+    nama_ketua: String(f.nama == null ? '' : f.nama).trim(),
+    nip_ketua: String(f.nip == null ? '' : f.nip).trim(),
+    jabatan_ketua: String(f.jabatan == null ? '' : f.jabatan).trim(),
+    kota_ttd: String(f.kota == null ? '' : f.kota).trim(),
+  });
+}
+
 function setKabupatenTersimpan(v) {
   return setDokIdentitas({ kabupaten: String(v == null ? '' : v).trim() });
 }
@@ -1079,4 +1101,5 @@ window.PKGDB = {
   getRekap,
   getLogo, setLogo, getLogos, getDokIdentitas, setDokIdentitas,
   getKabupatenTersimpan, setKabupatenTersimpan,
+  getKetuaPokjawas, setKetuaPokjawas,
 };
